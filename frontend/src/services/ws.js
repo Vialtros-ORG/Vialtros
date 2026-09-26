@@ -1,10 +1,11 @@
 // Servicio para conexión WebSocket de tracking en tiempo real
 
 export function resolveWsBaseUrl() {
-  if (process.env.REACT_APP_WS_URL) {
-    return process.env.REACT_APP_WS_URL.replace(/\/+$/, "");
-  }
+  const configuredWsUrl = process.env.REACT_APP_WS_URL?.trim();
 
+if (configuredWsUrl) {
+  return configuredWsUrl.replace(/\/+$/, "");
+}
   const apiUrl = process.env.REACT_APP_API_URL;
   if (apiUrl) {
     try {
