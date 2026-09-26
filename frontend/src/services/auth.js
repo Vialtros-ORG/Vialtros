@@ -71,6 +71,7 @@ export function clearSession() {
 
 export async function updateCurrentUser(data) {
   const res = await api.patch("/users/me/", data);
+  saveUserCache(res.data);
   return res.data;
 }
 
