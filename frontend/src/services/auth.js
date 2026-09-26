@@ -56,6 +56,7 @@ export function getUserCache() {
     const raw = localStorage.getItem("cached_user");
     return raw ? JSON.parse(raw) : null;
   } catch {
+    localStorage.removeItem("cached_user");
     return null;
   }
 }
