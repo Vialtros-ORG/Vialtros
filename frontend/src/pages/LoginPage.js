@@ -290,7 +290,10 @@ export default function LoginPage({ onLogin }) {
                   className="w-full border border-gray-200 bg-gray-50 rounded-xl pl-10 pr-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition"
                   placeholder="Nombre de usuario"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => {
+  setUsername(e.target.value);
+  setError("");
+}}
                   autoComplete="username"
                   required
                 />
@@ -311,7 +314,10 @@ export default function LoginPage({ onLogin }) {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+  setPassword(e.target.value);
+  setError("");
+}}
                   autoComplete="current-password"
                   required
                 />
