@@ -131,6 +131,12 @@ export default function LoginPage({ onLogin }) {
     setError("");
     setLoading(true);
     const normalizedUsername = username.trim();
+
+    if (!normalizedUsername) {
+  setError("Ingresa tu nombre de usuario");
+  setLoading(false);
+  return;
+}
     try {
       const res = await api.post("/token/", {
         username: normalizedUsername,
