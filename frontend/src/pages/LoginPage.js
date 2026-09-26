@@ -343,7 +343,11 @@ export default function LoginPage({ onLogin }) {
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+              <div
+  role="alert"
+  aria-live="polite"
+  className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3"
+>
                 <svg
                   width="16"
                   height="16"
