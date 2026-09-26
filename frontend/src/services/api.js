@@ -51,6 +51,9 @@ function redirectToLogin() {
   if (!window.location.pathname.includes("/login")) {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
+    localStorage.removeItem("role");
+    localStorage.removeItem("username");
+    localStorage.removeItem("cached_user");
     window.location.href = "/login";
   }
 }
