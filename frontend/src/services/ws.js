@@ -97,16 +97,18 @@ const safeMaxReconnectAttempts = Math.max(
   let reconnectAttempts = 0;
   let reconnectTimer = null;
 
-  if (!Number.isFinite(Number(routeId))) {
-    throw new Error("connectTrackingWS requiere un routeId numerico");
-  }
+  const normalizedRouteId = Number(routeId);
+
+if (!Number.isFinite(normalizedRouteId)) {
+  throw new Error("connectTrackingWS requiere un routeId numerico");
+}
 
   if (typeof WebSocket === "undefined") {
     throw new Error("WebSocket no esta disponible en este entorno");
   }
 
   const connect = () => {
-    const wsUrl = `${resolveWsBaseUrl()}/tracking/${routeId}/`;
+    const wsUrl = `${resolveWsBaseUrl()}/tracking/${normalizedRouteId}/`;
     socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
