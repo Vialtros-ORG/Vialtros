@@ -370,7 +370,7 @@ export default function LoginPage({ onLogin }) {
             {/* Botón */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !username.trim() || !password}
               className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl text-sm transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2 mt-1"
             >
               {loading ? (
