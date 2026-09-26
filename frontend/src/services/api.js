@@ -29,7 +29,7 @@ api.interceptors.request.use((config) => {
     return config;
   }
 
-  if (token && !config.url.includes("/token/")) {
+  if (token && !config.url?.includes("/token/")) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
