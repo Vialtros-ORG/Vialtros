@@ -335,6 +335,7 @@ export default function LoginPage({ onLogin }) {
                   aria-label={
                     showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
                   }
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? <IconEyeOff /> : <IconEye />}
                 </button>
