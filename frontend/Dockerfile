@@ -1,3 +1,4 @@
+# Etapa 1: construir la aplicacion React
 FROM node:20-alpine AS build
 
 WORKDIR /app
@@ -11,6 +12,7 @@ COPY . .
 RUN npm run build
 
 
+# Etapa 2: servir los archivos estaticos
 FROM node:20-alpine AS serve
 
 WORKDIR /app
