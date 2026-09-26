@@ -15,7 +15,7 @@ FROM node:20-alpine AS serve
 
 WORKDIR /app
 
-RUN npm install -g serve
+RUN npm install --global serve
 
 COPY --from=build /app/build ./build
 
