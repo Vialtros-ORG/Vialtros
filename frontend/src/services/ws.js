@@ -85,6 +85,12 @@ export function connectTrackingWS(routeId, onMessage, handlers = {}) {
     maxReconnectAttempts = 20,
   } = handlers;
 
+  const safeReconnectDelay = Math.max(Number(reconnectDelayMs) || 1500, 500);
+const safeMaxReconnectAttempts = Math.max(
+  Number(maxReconnectAttempts) || 20,
+  0,
+);
+
   let socket = null;
   let closedManually = false;
   let wasConnected = false;
@@ -137,11 +143,14 @@ export function connectTrackingWS(routeId, onMessage, handlers = {}) {
     socket.onclose = () => {
       if (closedManually) return;
       if (onClose) onClose();
-      const effectiveMax = wasConnected ? maxReconnectAttempts : 5;
+      const effectiveMax = wasConnected ? safeMaxReconnectAttempts : 5;
       if (reconnectAttempts >= effectiveMax) return;
 
       reconnectAttempts += 1;
-      const delay = Math.min(reconnectDelayMs * 2 ** reconnectAttempts, 30000);
+      const delay = Math.min(
+  safeReconnectDelay * 2 ** reconnectAttempts,
+  30000,
+);
       reconnectTimer = setTimeout(connect, delay);
     };
   };
