@@ -6,7 +6,7 @@ export function resolveWsBaseUrl() {
 if (configuredWsUrl) {
   return configuredWsUrl.replace(/\/+$/, "");
 }
-  const apiUrl = process.env.REACT_APP_API_URL;
+  const apiUrl = process.env.REACT_APP_API_URL?.trim();
   if (apiUrl) {
     try {
       const url = new URL(apiUrl);
