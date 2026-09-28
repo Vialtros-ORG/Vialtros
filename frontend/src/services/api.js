@@ -29,7 +29,7 @@ api.interceptors.request.use((config) => {
     return config;
   }
 
-  if (token && !config.url.includes("/token/")) {
+  if (token && !config.url?.includes("/token/")) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -51,6 +51,9 @@ function redirectToLogin() {
   if (!window.location.pathname.includes("/login")) {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
+    localStorage.removeItem("role");
+    localStorage.removeItem("username");
+    localStorage.removeItem("cached_user");
     window.location.href = "/login";
   }
 }

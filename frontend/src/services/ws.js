@@ -1,11 +1,12 @@
 // Servicio para conexión WebSocket de tracking en tiempo real
 
 export function resolveWsBaseUrl() {
-  if (process.env.REACT_APP_WS_URL) {
-    return process.env.REACT_APP_WS_URL.replace(/\/+$/, "");
-  }
+  const configuredWsUrl = process.env.REACT_APP_WS_URL?.trim();
 
-  const apiUrl = process.env.REACT_APP_API_URL;
+if (configuredWsUrl) {
+  return configuredWsUrl.replace(/\/+$/, "");
+}
+  const apiUrl = process.env.REACT_APP_API_URL?.trim();
   if (apiUrl) {
     try {
       const url = new URL(apiUrl);
@@ -84,22 +85,30 @@ export function connectTrackingWS(routeId, onMessage, handlers = {}) {
     maxReconnectAttempts = 20,
   } = handlers;
 
+  const safeReconnectDelay = Math.max(Number(reconnectDelayMs) || 1500, 500);
+const safeMaxReconnectAttempts = Math.max(
+  Number(maxReconnectAttempts) || 20,
+  0,
+);
+
   let socket = null;
   let closedManually = false;
   let wasConnected = false;
   let reconnectAttempts = 0;
   let reconnectTimer = null;
 
-  if (!Number.isFinite(Number(routeId))) {
-    throw new Error("connectTrackingWS requiere un routeId numerico");
-  }
+  const normalizedRouteId = Number(routeId);
+
+if (!Number.isFinite(normalizedRouteId)) {
+  throw new Error("connectTrackingWS requiere un routeId numerico");
+}
 
   if (typeof WebSocket === "undefined") {
     throw new Error("WebSocket no esta disponible en este entorno");
   }
 
   const connect = () => {
-    const wsUrl = `${resolveWsBaseUrl()}/tracking/${routeId}/`;
+    const wsUrl = `${resolveWsBaseUrl()}/tracking/${normalizedRouteId}/`;
     socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
@@ -136,11 +145,14 @@ export function connectTrackingWS(routeId, onMessage, handlers = {}) {
     socket.onclose = () => {
       if (closedManually) return;
       if (onClose) onClose();
-      const effectiveMax = wasConnected ? maxReconnectAttempts : 5;
+      const effectiveMax = wasConnected ? safeMaxReconnectAttempts : 5;
       if (reconnectAttempts >= effectiveMax) return;
 
       reconnectAttempts += 1;
-      const delay = Math.min(reconnectDelayMs * 2 ** reconnectAttempts, 30000);
+      const delay = Math.min(
+  safeReconnectDelay * 2 ** reconnectAttempts,
+  30000,
+);
       reconnectTimer = setTimeout(connect, delay);
     };
   };

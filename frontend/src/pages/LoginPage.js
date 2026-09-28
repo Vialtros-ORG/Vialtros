@@ -131,6 +131,12 @@ export default function LoginPage({ onLogin }) {
     setError("");
     setLoading(true);
     const normalizedUsername = username.trim();
+
+    if (!normalizedUsername) {
+  setError("Ingresa tu nombre de usuario");
+  setLoading(false);
+  return;
+}
     try {
       const res = await api.post("/token/", {
         username: normalizedUsername,
@@ -290,7 +296,10 @@ export default function LoginPage({ onLogin }) {
                   className="w-full border border-gray-200 bg-gray-50 rounded-xl pl-10 pr-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition"
                   placeholder="Nombre de usuario"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => {
+  setUsername(e.target.value);
+  setError("");
+}}
                   autoComplete="username"
                   required
                 />
@@ -311,7 +320,10 @@ export default function LoginPage({ onLogin }) {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+  setPassword(e.target.value);
+  setError("");
+}}
                   autoComplete="current-password"
                   required
                 />
@@ -323,6 +335,7 @@ export default function LoginPage({ onLogin }) {
                   aria-label={
                     showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
                   }
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? <IconEyeOff /> : <IconEye />}
                 </button>
@@ -331,7 +344,11 @@ export default function LoginPage({ onLogin }) {
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+              <div
+  role="alert"
+  aria-live="polite"
+  className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3"
+>
                 <svg
                   width="16"
                   height="16"
@@ -354,7 +371,7 @@ export default function LoginPage({ onLogin }) {
             {/* Botón */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !username.trim() || !password}
               className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl text-sm transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2 mt-1"
             >
               {loading ? (

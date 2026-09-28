@@ -56,6 +56,7 @@ export function getUserCache() {
     const raw = localStorage.getItem("cached_user");
     return raw ? JSON.parse(raw) : null;
   } catch {
+    localStorage.removeItem("cached_user");
     return null;
   }
 }
@@ -71,6 +72,7 @@ export function clearSession() {
 
 export async function updateCurrentUser(data) {
   const res = await api.patch("/users/me/", data);
+  saveUserCache(res.data);
   return res.data;
 }
 
