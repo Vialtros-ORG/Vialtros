@@ -7,12 +7,14 @@ For more information on this file, see
 https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/
 """
 
-
 import os
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+from django.core.asgi import get_asgi_application
 
-from tracking.routing import application as channels_application
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 
-# Para HTTP y WebSocket
-application = channels_application
+django_application = get_asgi_application()
+
+from tracking.routing import create_application
+
+application = create_application(django_application)

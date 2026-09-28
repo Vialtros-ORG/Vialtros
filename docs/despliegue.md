@@ -5,7 +5,7 @@
 El proyecto ha sido preparado para desplegar en Apache con las siguientes características:
 
 ✅ **Usuario Admin de Prueba**: usuario `admin`, contraseña `admin123`
-✅ **Base de Datos**: Neon PostgreSQL configurada
+✅ **Base de Datos**: SQLite local por defecto; PostgreSQL es opcional
 ✅ **Backend**: Django + Gunicorn configurado para producción
 ✅ **Frontend**: React compilado para producción
 ✅ **Servidor Web**: Apache con reverse proxy
@@ -52,8 +52,7 @@ Esto ejecutará:
 En resumen:
 
 ```bash
-# En el servidor Apache
-ssh user@ds1.eleueleo.com
+# En tu servidor Apache configurado
 cd vialtros
 bash quick-setup.sh  # Setup automático
 
@@ -88,8 +87,8 @@ Ver sección 4-5 de `GUIA_DESPLIEGUE_APACHE.txt` para instrucciones detalladas.
 - Contraseña: `admin123`
 
 **Acceso:**
-- Panel de Admin: http://vialtros.ds1.eleueleo.com/admin
-- API: http://vialtros.ds1.eleueleo.com/api
+- Panel de Admin: http://localhost:8000/admin
+- API: http://localhost:8000/api
 
 ⚠️ **En Producción**: Cambia esta contraseña inmediatamente
 
@@ -142,7 +141,7 @@ npm start
 |----------|--------|------------|
 | Apache | 80 | Servidor web (frontend + proxy) |
 | Gunicorn | 8000 | Django WSGI server |
-| Neon | Remoto | Base de datos PostgreSQL |
+| SQLite | Local | Base de datos predeterminada |
 
 ---
 
@@ -171,9 +170,9 @@ CORS_ALLOWED_ORIGINS=...           # Dominios CORS permitidos
 
 Tu aplicación está configurada para funcionar en:
 
-- **Frontend**: http://vialtros.ds1.eleueleo.com
-- **Backend API**: http://vialtros.ds1.eleueleo.com/api
-- **Admin Panel**: http://vialtros.ds1.eleueleo.com/admin
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000/api
+- **Admin Panel**: http://localhost:8000/admin
 
 ---
 
@@ -183,7 +182,7 @@ Tu aplicación está configurada para funcionar en:
 2. **Configura el servidor**: Sigue la sección 2 de la guía
 3. **Configura GitHub Secrets**: Sección 4 de la guía
 4. **Prueba el despliegue**: Sección 5 o 6 de la guía
-5. **Accede a tu aplicación**: http://vialtros.ds1.eleueleo.com
+5. **Accede a tu aplicación**: http://localhost:3000
 6. **Inicia sesión**: admin / admin123
 7. **Cambia la contraseña**: En producción
 
@@ -228,8 +227,8 @@ Para más información, consulta:
 
 **Fecha de preparación:** 24 de mayo de 2026
 **Proyecto:** Vialtros
-**Dominio:** vialtros.ds1.eleueleo.com
-**BD:** Neon (hidden-mud-15767585)
+**Entorno local:** localhost
+**BD:** SQLite por defecto (PostgreSQL opcional)
 
 ## Checklist antes de producción
 
