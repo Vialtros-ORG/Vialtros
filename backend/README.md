@@ -43,6 +43,22 @@ daphne core.asgi:application  # Requiere instalar daphne
 - Usa variables de entorno para claves y credenciales.
 - Revisa el archivo `.env.example` para ejemplo de configuración.
 
+### 6. Ejecución local con Docker
+
+`backend/Dockerfile` usa la imagen base `python:3.14-slim`, instala las dependencias de `requirements.txt` y ejecuta `collectstatic` durante el build. Daphne inicia `core.asgi:application` en el puerto `8000`; Django Channels mantiene el soporte WebSocket y WhiteNoise sirve los archivos estáticos. En desarrollo local se usa SQLite, sin depender del antiguo servidor `ds1.eleueleo.com`.
+
+Desde el directorio `backend/`, construye y ejecuta el contenedor:
+
+```bash
+docker build -t vialtros-backend .
+docker run -d --name vialtros-backend-container -p 8000:8000 vialtros-backend:latest
+```
+
+- Backend: http://localhost:8000
+- Django Admin: http://localhost:8000/admin/
+
+**Validación realizada:** `docker ps` confirmó que el contenedor estaba activo; `python manage.py check` no reportó problemas; Django Admin respondió correctamente; los archivos CSS y JavaScript estáticos se sirvieron con HTTP 200 y sus MIME types correspondientes; y se verificó una conexión WebSocket.
+
 ---
 
 ## Explicación y ejemplos de uso

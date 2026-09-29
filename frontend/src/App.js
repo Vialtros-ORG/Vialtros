@@ -102,7 +102,7 @@ function App() {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 text-sm font-medium text-white-500 hover:text-red-600 transition px-3 py-2 rounded-lg hover:bg-red-50"
+                className="flex items-center gap-2 text-sm font-medium text-white hover:text-red-600 transition px-3 py-2 rounded-lg hover:bg-red-50"
               >
                 <svg
                   width="16"
@@ -118,7 +118,7 @@ function App() {
                   <polyline points="16 17 21 12 16 7" />
                   <line x1="21" y1="12" x2="9" y2="12" />
                 </svg>
-                Cerrar sesion
+                Cerrar sesión
               </button>
             </div>
           </nav>
