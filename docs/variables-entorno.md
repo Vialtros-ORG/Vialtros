@@ -62,6 +62,26 @@ La plantilla está en `frontend/.env.example`. Create React App expone al códig
 | `REACT_APP_GOOGLE_ROUTES_API_KEY` | Clave para Google Routes API; puede usar la clave de Maps como alternativa. |
 | `REACT_APP_MAPBOX_TOKEN` | Token opcional para mapas vectoriales de Mapbox; CartoDB se usa como alternativa. |
 
+## Validación con la plantilla `.env.example`
+
+Para verificar la plantilla sin modificar sus valores, se copia a `backend/.env` y se ejecuta el chequeo desde `backend/`:
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+cd backend
+python manage.py check
+```
+
+El resultado esperado es:
+
+```text
+System check identified no issues (0 silenced).
+```
+
+Después se inicia el servidor desde `backend/` con `python manage.py runserver`. Se deja abierta la terminal del servidor mientras se carga `http://127.0.0.1:8000/` en el navegador. La respuesta HTTP confirma que el backend funciona; el servidor usa la base SQLite local y no se conecta a Neon.
+
+El bloque `DB_*` permanece comentado en `backend/.env.example`, por lo que la configuración predeterminada usa SQLite. Para usar PostgreSQL/Neon, se deben descomentar las variables correspondientes y configurarlas con los valores del entorno de destino.
+
 ## Validaciones realizadas
 
 - Se utilizó `git --no-pager diff HEAD~1 HEAD` para verificar los cambios completos.
