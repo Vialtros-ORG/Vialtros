@@ -381,3 +381,39 @@ class AdminProtectionTests(APITestCase):
             response.data['detail'],
             'No se puede eliminar el único administrador del sistema.'
         )
+
+class TrackingStatusValidationTests(APITestCase):
+    def setUp(self):
+        self.driver_user = User.objects.create_user(
+            username='driver_status',
+            password='secreto123',
+            role='driver',
+        )
+        self.driver = Driver.objects.create(
+            user=self.driver_user,
+            license_number='DRV-STATUS',
+        )
+        self.route = Route.objects.create(
+            name='Ruta Estado',
+            origin='Centro',
+            destination='Universidad',
+            driver=self.driver,
+        )
+        self.tracking = Tracking.objects.create(
+            route=self.route,
+            latitude=3.45,
+            longitude=-76.53,
+        )
+        self.client.force_authenticate(user=self.driver_user)
+
+    def test_rejects_invalid_tracking_status(self):
+        response = self.client.post(
+            f'/api/tracking/{self.tracking.id}/update_status/',
+            {'status': 'estado_invalido'},
+            format='json',
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
