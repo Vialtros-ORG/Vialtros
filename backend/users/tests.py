@@ -417,3 +417,20 @@ class TrackingStatusValidationTests(APITestCase):
             response.status_code,
             status.HTTP_400_BAD_REQUEST,
         )
+
+class RouteNotFoundTests(APITestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_user(
+            username='admin_route_test',
+            password='secreto123',
+            role='admin',
+        )
+        self.client.force_authenticate(user=self.admin_user)
+
+    def test_route_detail_returns_404_when_route_does_not_exist(self):
+        response = self.client.get('/api/routes/999999/')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
