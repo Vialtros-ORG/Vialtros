@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vialtros-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: vialtros
+      POSTGRES_USER: vialtros
+      POSTGRES_PASSWORD: vialtros_dev_password
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vialtros -d vialtros"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: vialtros-backend
+    restart: unless-stopped
+
+    environment:
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: vialtros
+      DB_USER: vialtros
+      DB_PASSWORD: vialtros_dev_password
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_SSLMODE: disable
+
+      DJANGO_SECRET_KEY: docker-local-secret-key
+      DJANGO_DEBUG: "True"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
