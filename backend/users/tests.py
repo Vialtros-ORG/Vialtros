@@ -443,3 +443,21 @@ class AuthenticationRequiredTests(APITestCase):
             response.status_code,
             status.HTTP_401_UNAUTHORIZED,
         )
+
+
+class RoutePermissionTests(APITestCase):
+    def setUp(self):
+        self.normal_user = User.objects.create_user(
+            username='usuario_sin_permiso',
+            password='secreto123',
+            role='user',
+        )
+        self.client.force_authenticate(user=self.normal_user)
+
+    def test_normal_user_cannot_access_route_admin_endpoint(self):
+        response = self.client.get('/api/routes/')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
