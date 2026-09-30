@@ -434,3 +434,12 @@ class RouteNotFoundTests(APITestCase):
             response.status_code,
             status.HTTP_404_NOT_FOUND,
         )
+
+class AuthenticationRequiredTests(APITestCase):
+    def test_notifications_require_authentication(self):
+        response = self.client.get('/api/notifications/')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
