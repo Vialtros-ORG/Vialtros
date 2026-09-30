@@ -361,3 +361,23 @@ class RecentActivityTests(APITestCase):
 
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 		self.assertEqual(sum(item['value'] for item in response.data), 2)
+
+
+class AdminProtectionTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='admin_unico',
+            password='secreto123',
+            role='admin',
+        )
+        self.client.force_authenticate(user=self.admin)
+
+    def test_cannot_delete_only_admin(self):
+        response = self.client.delete(f'/api/users/{self.admin.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(User.objects.filter(id=self.admin.id).exists())
+        self.assertEqual(
+            response.data['detail'],
+            'No se puede eliminar el único administrador del sistema.'
+        )
