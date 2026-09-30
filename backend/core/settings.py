@@ -100,6 +100,7 @@ ASGI_APPLICATION = 'core.asgi.application'
 DB_ENGINE = os.environ.get('DB_ENGINE', '').strip()
 DB_HOST = os.environ.get('DB_HOST', '').strip()
 
+DB_SSLMODE = os.environ.get('DB_SSLMODE', 'require')    
 if DB_ENGINE == 'django.db.backends.postgresql' or DB_HOST:
     DATABASES = {
         'default': {
@@ -110,8 +111,8 @@ if DB_ENGINE == 'django.db.backends.postgresql' or DB_HOST:
             'HOST': os.environ.get('DB_HOST', ''),
             'PORT': os.environ.get('DB_PORT', '5432'),
             'OPTIONS': {
-                'sslmode': 'require',
-            }
+    'sslmode': DB_SSLMODE,
+}
         }
     }
 else:
