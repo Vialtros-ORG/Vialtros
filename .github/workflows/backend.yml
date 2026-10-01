@@ -1,0 +1,33 @@
+name: Backend Docker
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  workflow_dispatch:
+
+jobs:
+  docker-build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build backend Docker image
+        run: docker build -t vialtros-backend:${{ github.sha }} ./backend
+
+      - name: Run Django checks inside container
+        run: docker run --rm vialtros-backend:${{ github.sha }} python manage.py check
+
+      - name: Run backend tests inside container
+        run: docker run --rm vialtros-backend:${{ github.sha }} python manage.py test users
+
+      - name: Smoke test container startup
+        run: |
+          docker run -d --name vialtros-backend-smoke -p 8000:8000 vialtros-backend:${{ github.sha }}
+          sleep 8
+          docker ps --filter name=vialtros-backend-smoke --format 'table {{.Names}}\t{{.Status}}'
+          docker rm -f vialtros-backend-smoke
