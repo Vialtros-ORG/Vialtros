@@ -96,3 +96,29 @@ Para contribuir al proyecto:
 ---
 
 *Documentación última actualización: 21 de mayo de 2026*
+
+
+## Pruebas del backend en Docker
+
+Para ejecutar las pruebas del backend dentro del contenedor:
+
+```bash
+docker build -t vialtros-backend-tests ./backend
+docker run --rm vialtros-backend-tests python manage.py test users -v 2
+```
+
+Las pruebas verifican funcionalidades del backend relacionadas con:
+
+- tracking;
+- monitoreo de rutas;
+- actividad semanal y reciente;
+- validación de permisos;
+- autenticación;
+- protección del administrador;
+- validación de estados.
+
+El resultado esperado debe finalizar con:
+
+```text
+OK
+```
