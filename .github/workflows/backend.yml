@@ -1,6 +1,11 @@
 name: Backend Docker
 
 on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
   push:
     branches: [master]
     paths:
