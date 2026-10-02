@@ -19,7 +19,48 @@ pip install -r requirements.txt
 
 ### 2. Configurar base de datos
 
-Asegúrate de tener PostgreSQL y Redis corriendo. Edita `core/settings.py` con tus credenciales.
+Asegúrate de tener PostgreSQL y Redis corriendo y configura la conexión mediante las variables de entorno descritas a continuación.
+
+### Variables de entorno
+
+El archivo `backend/.env.example` es la plantilla versionada para centralizar la configuración del backend. Desde el directorio `backend/`, crea tu archivo local con:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Django carga estas variables con `python-dotenv` desde `core/settings.py`. El archivo `.env` está ignorado por Git: úsalo localmente o en el entorno de despliegue y nunca confirmes secretos al repositorio. `.env.example` debe permanecer como plantilla y no contener contraseñas, tokens, claves API ni otros secretos reales.
+
+| Variable | Propósito |
+| --- | --- |
+| `DJANGO_SECRET_KEY` | Clave de seguridad de Django. **Sensible.** |
+| `DJANGO_DEBUG` | Activa o desactiva el modo de depuración. |
+| `DJANGO_ALLOWED_HOSTS` | Hosts permitidos por Django, separados por comas. |
+| `DB_ENGINE` | Motor de base de datos de Django. |
+| `DB_NAME` | Nombre de la base de datos. |
+| `DB_USER` | Usuario de la base de datos. |
+| `DB_PASSWORD` | Contraseña de la base de datos. **Sensible.** |
+| `DB_HOST` | Host de la base de datos. |
+| `DB_PORT` | Puerto de la base de datos. |
+| `EMAIL_HOST` | Servidor SMTP. |
+| `EMAIL_PORT` | Puerto SMTP. |
+| `EMAIL_HOST_USER` | Usuario de correo SMTP. |
+| `EMAIL_HOST_PASSWORD` | Contraseña de correo SMTP. **Sensible.** |
+| `FRONTEND_URL` | URL base del frontend. |
+| `TRACKING_INGEST_TOKEN` | Token para autenticar la ingesta de tracking. **Sensible.** |
+| `REDIS_URL` | URL de conexión a Redis para Channels. |
+| `DJANGO_SECURE_SSL_REDIRECT` | Controla la redirección forzada a HTTPS. |
+| `CORS_ALLOWED_ORIGINS` | Orígenes CORS permitidos, separados por comas. |
+
+`DJANGO_SECRET_KEY`, `DB_PASSWORD`, `EMAIL_HOST_PASSWORD` y `TRACKING_INGEST_TOKEN` deben tener valores reales solo en el `.env` local o en el entorno de despliegue; nunca los incluyas en `.env.example`.
+
+**Validación:** se ejecutó `python manage.py check` con un `.env` temporal de valores de prueba y se obtuvo:
+
+```text
+System check identified no issues (0 silenced).
+```
+
+El `.env` temporal se eliminó después de la validación y el árbol de trabajo quedó limpio.
 
 ### 3. Migraciones y superusuario
 
