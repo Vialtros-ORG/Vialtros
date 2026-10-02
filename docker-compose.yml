@@ -5,9 +5,9 @@ services:
     restart: unless-stopped
 
     environment:
-      POSTGRES_DB: vialtros
-      POSTGRES_USER: vialtros
-      POSTGRES_PASSWORD: vialtros_dev_password
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
     ports:
       - "5432:5432"
@@ -16,7 +16,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vialtros -d vialtros"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -29,16 +29,16 @@ services:
 
     environment:
       DB_ENGINE: django.db.backends.postgresql
-      DB_NAME: vialtros
-      DB_USER: vialtros
-      DB_PASSWORD: vialtros_dev_password
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_HOST: db
       DB_PORT: 5432
       DB_SSLMODE: disable
 
-      DJANGO_SECRET_KEY: docker-local-secret-key
-      DJANGO_DEBUG: "True"
-      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
 
     ports:
       - "8000:8000"
