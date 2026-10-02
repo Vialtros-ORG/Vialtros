@@ -361,3 +361,103 @@ class RecentActivityTests(APITestCase):
 
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 		self.assertEqual(sum(item['value'] for item in response.data), 2)
+
+
+class AdminProtectionTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='admin_unico',
+            password='secreto123',
+            role='admin',
+        )
+        self.client.force_authenticate(user=self.admin)
+
+    def test_cannot_delete_only_admin(self):
+        response = self.client.delete(f'/api/users/{self.admin.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(User.objects.filter(id=self.admin.id).exists())
+        self.assertEqual(
+            response.data['detail'],
+            'No se puede eliminar el único administrador del sistema.'
+        )
+
+class TrackingStatusValidationTests(APITestCase):
+    def setUp(self):
+        self.driver_user = User.objects.create_user(
+            username='driver_status',
+            password='secreto123',
+            role='driver',
+        )
+        self.driver = Driver.objects.create(
+            user=self.driver_user,
+            license_number='DRV-STATUS',
+        )
+        self.route = Route.objects.create(
+            name='Ruta Estado',
+            origin='Centro',
+            destination='Universidad',
+            driver=self.driver,
+        )
+        self.tracking = Tracking.objects.create(
+            route=self.route,
+            latitude=3.45,
+            longitude=-76.53,
+        )
+        self.client.force_authenticate(user=self.driver_user)
+
+    def test_rejects_invalid_tracking_status(self):
+        response = self.client.post(
+            f'/api/tracking/{self.tracking.id}/update_status/',
+            {'status': 'estado_invalido'},
+            format='json',
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+class RouteNotFoundTests(APITestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_user(
+            username='admin_route_test',
+            password='secreto123',
+            role='admin',
+        )
+        self.client.force_authenticate(user=self.admin_user)
+
+    def test_route_detail_returns_404_when_route_does_not_exist(self):
+        response = self.client.get('/api/routes/999999/')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+class AuthenticationRequiredTests(APITestCase):
+    def test_notifications_require_authentication(self):
+        response = self.client.get('/api/notifications/')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+
+
+class RoutePermissionTests(APITestCase):
+    def setUp(self):
+        self.normal_user = User.objects.create_user(
+            username='usuario_sin_permiso',
+            password='secreto123',
+            role='user',
+        )
+        self.client.force_authenticate(user=self.normal_user)
+
+    def test_normal_user_cannot_access_route_admin_endpoint(self):
+        response = self.client.get('/api/routes/')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
