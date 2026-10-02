@@ -15,12 +15,13 @@ Centralizar la configuración del backend y del frontend mediante variables de e
 
 Los archivos `.env` y `.env.*` están ignorados por Git. `.env.example` es la plantilla versionada y no debe contener contraseñas, tokens, claves API ni otros secretos reales. Los valores reales se configuran solo en archivos `.env` locales o en el entorno de despliegue.
 
-Estas variables del backend son sensibles y deben permanecer vacías o ser valores no reales en la plantilla:
+En `backend/.env.example`, estas variables sensibles permanecen vacías:
 
-- `DJANGO_SECRET_KEY`
 - `DB_PASSWORD`
 - `EMAIL_HOST_PASSWORD`
 - `TRACKING_INGEST_TOKEN`
+
+`DJANGO_SECRET_KEY` usa el valor de desarrollo no apto para producción `dev-only-placeholder-change-me`. No es una clave real y debe sustituirse por un secreto propio en cada entorno.
 
 Las claves de servicios que se usan en el frontend se entregan al navegador; deben configurarse sin publicar credenciales privadas y restringirse según las opciones del proveedor.
 
@@ -62,41 +63,86 @@ La plantilla está en `frontend/.env.example`. Create React App expone al códig
 | `REACT_APP_GOOGLE_ROUTES_API_KEY` | Clave para Google Routes API; puede usar la clave de Maps como alternativa. |
 | `REACT_APP_MAPBOX_TOKEN` | Token opcional para mapas vectoriales de Mapbox; CartoDB se usa como alternativa. |
 
-## Validación con la plantilla `.env.example`
+## Comportamiento de la plantilla del backend
 
-Para verificar la plantilla sin modificar sus valores, se copia a `backend/.env` y se ejecuta el chequeo desde `backend/`:
+En `backend/.env.example`, todas las variables `DB_*` están comentadas. Si no se definen esas variables, SQLite es la base de datos local predeterminada. PostgreSQL/Neon es opcional: para usarlo hay que descomentar las variables `DB_*` necesarias y configurarlas con valores específicos del entorno. La plantilla no incluye credenciales, contraseñas, tokens ni secretos de producción reales.
+
+`CORS_ALLOWED_ORIGINS` tiene una sola declaración de ejemplo y está comentada. Los campos sensibles de correo (`EMAIL_HOST_PASSWORD`) y tracking (`TRACKING_INGEST_TOKEN`) permanecen vacíos.
+
+## Validaciones ejecutadas
+
+Los siguientes son resultados observados al validar la configuración local; no son resultados meramente esperados.
+
+### 1. Django system check
+
+Ejecutado desde `backend/`:
 
 ```powershell
-Copy-Item backend\.env.example backend\.env
-cd backend
 python manage.py check
 ```
 
-El resultado esperado es:
+Resultado:
 
 ```text
 System check identified no issues (0 silenced).
 ```
 
-Después se inicia el servidor desde `backend/` con `python manage.py runserver`. Se deja abierta la terminal del servidor mientras se carga `http://127.0.0.1:8000/` en el navegador. La respuesta HTTP confirma que el backend funciona; el servidor usa la base SQLite local y no se conecta a Neon.
+### 2. Database engine and path
 
-El bloque `DB_*` permanece comentado en `backend/.env.example`, por lo que la configuración predeterminada usa SQLite. Para usar PostgreSQL/Neon, se deben descomentar las variables correspondientes y configurarlas con los valores del entorno de destino.
+Ejecutado desde `backend/`:
 
-## Validaciones realizadas
-
-- Se utilizó `git --no-pager diff HEAD~1 HEAD` para verificar los cambios completos.
-- Se compararon las variables de entorno usadas por `settings.py` con `backend/.env.example`; no había variables de backend usadas por `settings.py` que faltaran en la plantilla.
-- Se revisó `frontend/.env.example`.
-- Se verificaron las variables sensibles de los archivos `.env.example`; los valores sensibles del backend se dejaron vacíos.
-- Se creó un `.env` temporal con valores de prueba y se validó Django con `python manage.py check`. El resultado fue:
-
-```text
-System check identified no issues (0 silenced).
+```powershell
+python manage.py shell -c "from django.conf import settings; print(settings.DATABASES['default']['ENGINE']); print(settings.DATABASES['default']['NAME'])"
 ```
 
-- El `.env` temporal se eliminó después de la validación.
-- `git status` confirmó al concluir esas validaciones:
+Resultado:
 
 ```text
-nothing to commit, working tree clean
+django.db.backends.sqlite3
+C:\Users\LUAN\Desktop\proyecto\Vialtros\backend\db.sqlite3
 ```
+
+Esto confirma que, al no estar configuradas las variables `DB_*`, Django seleccionó SQLite y la base local `db.sqlite3`.
+
+### 3. Local HTTP server
+
+El servidor de desarrollo se inició desde `backend/` con:
+
+```powershell
+python manage.py runserver
+```
+
+Se inició en `http://127.0.0.1:8000/`. La solicitud HTTP ejecutada fue:
+
+```powershell
+curl.exe -i http://127.0.0.1:8000/
+```
+
+Respuesta relevante:
+
+```text
+HTTP/1.1 302 Found
+Content-Type: text/html; charset=utf-8
+Location: /admin/
+Server: daphne
+```
+
+El estado HTTP 302 confirma que el servidor local Django/Daphne respondió y redirigió `/` a `/admin/`; no fue una respuesta HTTP 200.
+
+## Limpieza del `.env` temporal
+
+Se usó `backend/.env` como copia local temporal de `backend/.env.example` para la validación. Un archivo `.env` no debe añadirse al repositorio. Si ya existe un `.env` perteneciente al usuario, no se debe eliminar a ciegas; solo debe retirarse un archivo temporal creado específicamente para esta validación.
+
+Después de la limpieza, se ejecutó:
+
+```powershell
+Test-Path backend\.env
+```
+
+Resultado:
+
+```text
+False
+```
+
+Esto confirma que no quedó un `.env` temporal en `backend/`.
