@@ -86,7 +86,7 @@ daphne core.asgi:application  # Requiere instalar daphne
 
 ### 6. Ejecución local con Docker
 
-`backend/Dockerfile` usa la imagen base `python:3.14-slim`, instala las dependencias de `requirements.txt` y ejecuta `collectstatic` durante el build. Daphne inicia `core.asgi:application` en el puerto `8000`; Django Channels mantiene el soporte WebSocket y WhiteNoise sirve los archivos estáticos. En desarrollo local se usa SQLite, sin depender del antiguo servidor `ds1.eleueleo.com`.
+`backend/Dockerfile` usa la imagen base `python:3.14-slim`, instala las dependencias de `requirements.txt` y ejecuta `collectstatic` durante el build. Al iniciar el contenedor, `entrypoint.sh` aplica las migraciones pendientes con `python manage.py migrate --noinput` antes de iniciar Daphne. Django registra las migraciones aplicadas y no vuelve a aplicar las que ya están al reiniciar; los datos existentes se conservan. Si una migración falla, el backend no se inicia. Daphne sirve `core.asgi:application` en el puerto `8000`; Django Channels mantiene el soporte WebSocket y WhiteNoise sirve los archivos estáticos. En desarrollo local se usa SQLite, sin depender del antiguo servidor `ds1.eleueleo.com`.
 
 Desde el directorio `backend/`, construye y ejecuta el contenedor:
 
@@ -99,6 +99,10 @@ docker run -d --name vialtros-backend-container -p 8000:8000 vialtros-backend:la
 - Django Admin: http://localhost:8000/admin/
 
 **Validación realizada:** `docker ps` confirmó que el contenedor estaba activo; `python manage.py check` no reportó problemas; Django Admin respondió correctamente; los archivos CSS y JavaScript estáticos se sirvieron con HTTP 200 y sus MIME types correspondientes; y se verificó una conexión WebSocket.
+
+Al ejecutar el backend con Docker Compose, PostgreSQL debe estar saludable antes de iniciar el backend. Compose ya configura esta dependencia; las migraciones se ejecutan automáticamente cada vez que arranca el contenedor, incluidas las reinicializaciones.
+
+Para probar el orden de arranque, verificar las migraciones y comparar los datos antes y después de reiniciar los servicios sin eliminar el volumen PostgreSQL, sigue la guía [Docker del backend](../docs/docker-backend.md#probar-la-migracion-automatica-y-la-persistencia).
 
 ---
 
