@@ -1,8 +1,8 @@
-## Qué cambió
-<!-- Resumen del cambio en 1-3 líneas -->
-
 ## Descripción breve
 <!-- Contexto o motivo del cambio -->
+
+## Qué cambió
+<!-- Resumen del cambio en 1-3 líneas -->
 
 ## Cómo se validó
 <!-- Qué revisaste o probaste -->

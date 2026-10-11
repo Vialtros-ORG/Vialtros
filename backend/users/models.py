@@ -60,7 +60,7 @@ class Tracking(models.Model):
 
 	class Meta:
 		indexes = [
-			models.Index(fields=['route', '-timestamp']),
+			models.Index(fields=['route', '-timestamp'], name='tracking_route_timestamp_idx'),
 		]
 
 
