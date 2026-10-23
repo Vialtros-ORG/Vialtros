@@ -1,51 +1,67 @@
+
 services:
   db:
     image: postgres:16-alpine
     container_name: vialtros-postgres
     restart: unless-stopped
-
     environment:
       POSTGRES_DB: vialtros
       POSTGRES_USER: vialtros
-      POSTGRES_PASSWORD: vialtros_dev_password
-
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vialtros_dev_password}
     ports:
       - "5432:5432"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U vialtros -d vialtros"]
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - vialtros-network
 
   backend:
     build:
       context: ./backend
     container_name: vialtros-backend
     restart: unless-stopped
-
     environment:
       DB_ENGINE: django.db.backends.postgresql
       DB_NAME: vialtros
       DB_USER: vialtros
-      DB_PASSWORD: vialtros_dev_password
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-vialtros_dev_password}
       DB_HOST: db
-      DB_PORT: 5432
+      DB_PORT: "5432"
       DB_SSLMODE: disable
-
-      DJANGO_SECRET_KEY: docker-local-secret-key
-      DJANGO_DEBUG: "True"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-docker-local-secret-key}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
-
     ports:
       - "8000:8000"
-
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - vialtros-network
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_API_URL: http://localhost:8000/api
+        REACT_APP_WS_URL: ws://localhost:8000/ws
+    container_name: vialtros-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - vialtros-network
 
 volumes:
   postgres_data:
+
+networks:
+  vialtros-network:
+    driver: bridge
