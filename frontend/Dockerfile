@@ -9,6 +9,13 @@ RUN npm ci
 
 COPY . .
 
+# Variables disponibles durante la compilación de React
+ARG REACT_APP_API_URL=http://localhost:8000/api
+ARG REACT_APP_WS_URL=ws://localhost:8000/ws
+
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+ENV REACT_APP_WS_URL=${REACT_APP_WS_URL}
+
 RUN npm run build
 
 
