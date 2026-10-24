@@ -9,7 +9,7 @@ on:
       - '.github/workflows/**'
       - 'sonar-project.properties'
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'backend/**'
       - 'frontend/src/**'
