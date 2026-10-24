@@ -1,0 +1,41 @@
+name: SonarQube
+
+on:
+  pull_request:
+    branches: [Develop]
+    paths:
+      - 'backend/**'
+      - 'frontend/src/**'
+      - '.github/workflows/**'
+      - 'sonar-project.properties'
+  push:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - 'frontend/src/**'
+      - '.github/workflows/**'
+      - 'sonar-project.properties'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run SonarQube analysis
+        uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9 # v7.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >-
+            -Dsonar.qualitygate.wait=true

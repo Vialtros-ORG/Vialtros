@@ -2,7 +2,7 @@ name: Backend Docker
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [Develop]
     paths:
       - 'backend/**'
       - '.github/workflows/backend.yml'
