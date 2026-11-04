@@ -2,8 +2,14 @@ name: SonarQube
 
 on:
   pull_request:
+    branches: [Develop]
+    paths:
+      - 'backend/**'
+      - 'frontend/src/**'
+      - '.github/workflows/**'
+      - 'sonar-project.properties'
   push:
-    branches: [Develop, master, main]
+    branches: [master]
     paths:
       - 'backend/**'
       - 'frontend/src/**'
@@ -16,7 +22,7 @@ permissions:
 
 jobs:
   analyze:
-    name: Analyze Django backend
+    name: Analyze code
     runs-on: ubuntu-latest
 
     steps:
@@ -25,7 +31,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Analyze Django backend and React frontend
+      - name: Run SonarQube analysis
         uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9 # v7.0.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

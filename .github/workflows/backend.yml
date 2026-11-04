@@ -23,7 +23,17 @@ jobs:
 
       - name: Smoke test container startup
         run: |
-          docker run -d --name vialtros-backend-smoke -p 8000:8000 vialtros-backend:${{ github.sha }}
-          sleep 8
-          docker ps --filter name=vialtros-backend-smoke --format 'table {{.Names}}\t{{.Status}}'
-          docker rm -f vialtros-backend-smoke
+          container_name=vialtros-backend-smoke
+          trap 'docker rm -f "$container_name" >/dev/null 2>&1 || true' EXIT
+          docker run -d --name "$container_name" vialtros-backend:${{ github.sha }}
+
+          for attempt in {1..30}; do
+            if docker exec "$container_name" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/admin/login/', timeout=2)"; then
+              echo "Django admin returned HTTP successfully."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs "$container_name"
+          exit 1
