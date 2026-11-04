@@ -84,10 +84,16 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           if [[ "$EVENT_NAME" == "push" && "$BASE_SHA" =~ ^0+$ ]]; then
-            git diff --check "${HEAD_SHA}^" "$HEAD_SHA"
-          else
-            git diff --check "$BASE_SHA" "$HEAD_SHA"
+            BASE_SHA="${HEAD_SHA}^"
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" || -z "$BASE_SHA" ]]; then
+            if git rev-parse --verify --quiet "${HEAD_SHA}^" >/dev/null; then
+              BASE_SHA="${HEAD_SHA}^"
+            else
+              BASE_SHA="$(git hash-object -t tree /dev/null)"
+            fi
           fi
+
+          git diff --check "$BASE_SHA" "$HEAD_SHA"
 
   readme-links:
     name: Check links in README
@@ -120,13 +126,18 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          if [[ "$EVENT_NAME" == "push" && "$BASE_SHA" =~ ^0+$ ]]; then
-            BASE_SHA="${HEAD_SHA}^"
+          if [[ "$EVENT_NAME" == "push" && "$BASE_SHA" =~ ^0+$ ]] || [[ "$EVENT_NAME" == "workflow_dispatch" || -z "$BASE_SHA" ]]; then
+            if git rev-parse --verify --quiet "${HEAD_SHA}^" >/dev/null; then
+              BASE_SHA="${HEAD_SHA}^"
+            else
+              BASE_SHA="$(git hash-object -t tree /dev/null)"
+            fi
           fi
 
-          mapfile -t markdown_files < <(
-            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" -- '*.md' '*.markdown'
-          )
+          changed_files_file="$(mktemp)"
+          trap 'rm -f "$changed_files_file"' EXIT
+          git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA" -- '*.md' '*.markdown' > "$changed_files_file"
+          mapfile -d '' -t markdown_files < "$changed_files_file"
 
           if (( ${#markdown_files[@]} == 0 )); then
             echo "No changed Markdown files to lint."
