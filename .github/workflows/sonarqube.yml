@@ -2,12 +2,9 @@ name: SonarQube
 
 on:
   pull_request:
-    branches: [Develop]
-    paths:
-      - 'backend/**'
-      - 'frontend/src/**'
-      - '.github/workflows/**'
-      - 'sonar-project.properties'
+    # Ejecutar en toda PR, sin filtrar por rama destino o rutas modificadas.
+    # Los filtros por rutas omiten PR que solo cambian configuración o documentación,
+    # y `branches` puede dejar fuera PR hacia otras ramas.
   push:
     branches: [master]
     paths:
