@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [Develop, master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend CI (Modular)
+    uses: ./.github/workflows/backend.yml
+
+  frontend:
+    name: Frontend CI (Modular)
+    uses: ./.github/workflows/frontend.yml
+
+  whitespace:
+    name: Check changed lines for whitespace errors
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check changed lines
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "push" && "$BASE_SHA" =~ ^0+$ ]]; then
+            git diff --check "${HEAD_SHA}^" "$HEAD_SHA"
+          else
+            git diff --check "$BASE_SHA" "$HEAD_SHA"
+          fi
+
+  readme-links:
+    name: Check links in README
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate local README links
+        run: python .github/scripts/check_readme_links.py
+
+  lint-markdown:
+    name: lint-markdown
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Lint changed Markdown files
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "push" && "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA="${HEAD_SHA}^"
+          fi
+
+          mapfile -t markdown_files < <(
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" -- '*.md' '*.markdown'
+          )
+
+          if (( ${#markdown_files[@]} == 0 )); then
+            echo "No changed Markdown files to lint."
+            exit 0
+          fi
+
+          npx --yes markdownlint-cli2@0.24.0 "${markdown_files[@]}"

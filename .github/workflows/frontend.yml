@@ -1,0 +1,37 @@
+name: Frontend CI (Modular)
+
+on:
+  workflow_call:
+
+jobs:
+  build-and-test:
+    name: Frontend CI Job
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run frontend tests
+        run: npm test -- --watchAll=false --passWithNoTests
+        working-directory: frontend
+        env:
+          CI: true
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+        env:
+          CI: false

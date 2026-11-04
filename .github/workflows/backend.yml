@@ -1,20 +1,11 @@
-name: Backend Docker
+name: Backend CI (Modular)
 
 on:
-  pull_request:
-    branches: [Develop]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend.yml'
-  push:
-    branches: [master]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend.yml'
-  workflow_dispatch:
+  workflow_call:
 
 jobs:
   docker-build-and-test:
+    name: Backend CI Job
     runs-on: ubuntu-latest
 
     steps:
@@ -28,7 +19,7 @@ jobs:
         run: docker run --rm vialtros-backend:${{ github.sha }} python manage.py check
 
       - name: Run backend tests inside container
-        run: docker run --rm vialtros-backend:${{ github.sha }} python manage.py test users
+        run: docker run --rm vialtros-backend:${{ github.sha }} python manage.py test
 
       - name: Smoke test container startup
         run: |
