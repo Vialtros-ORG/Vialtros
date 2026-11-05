@@ -13,7 +13,7 @@
 
 ## Enlaces útiles
 
--  **Repositorio:** [Github Vialtros](https://github.com/Axwyk/Vialtros)
+-  **Repositorio:** [GitHub Vialtros](https://github.com/Vialtros-ORG/Vialtros)
 -  **Trello:** [Vialtros board](https://trello.com/b/Uu3eBPav/vialtros)
 -  **Reuniones:** Miércoles, Jueves y Domingo — 12:00 pm
 -  **Meet:** [meet.google.com/yfp-zmkq-buk](https://meet.google.com/yfp-zmkq-buk)
@@ -40,7 +40,7 @@ Plataforma SaaS de gestión de rutas con seguimiento GPS en tiempo real, roles d
 -  Sistema de notificaciones (en desarrollo)
 -  Mejoras en mapas y tracking (en progreso)
 
-Ver [**estado_proyecto.txt**](estado_proyecto.txt) para detalles completos de funcionalidades implementadas, pendientes y bugs resueltos.
+Consulta [la documentación del proyecto](docs/README.md) para encontrar las guías disponibles.
 
 ##  Inicio rápido
 
@@ -159,9 +159,9 @@ Para guías detalladas, consulta la carpeta [**docs/**](docs/):
 
 ##  Reportar Bugs
 
-En [estado_proyecto.txt](estado_proyecto.txt) encontrarás el histórico de bugs resueltos.
+Consulta [la documentación del proyecto](docs/README.md) para ver sus guías y el estado de la documentación.
 
-Para reportar nuevos issues, crea un [issue en GitHub](https://github.com/Axwyk/Vialtros/issues).
+Para reportar nuevos issues, crea un [issue en GitHub](https://github.com/Vialtros-ORG/Vialtros/issues).
 
 ##  Licencia
 
@@ -173,7 +173,7 @@ Equipo de desarrollo de Vialtros. Reuniones: Miércoles, Jueves y Domingo a las 
 
 ---
 
-**¿Necesitas ayuda?** Ver [docs/despliegue.md](docs/despliegue.md) o contacta al equipo en Slack.
+**¿Necesitas ayuda?** Consulta [docs/despliegue.md](docs/despliegue.md) o reporta un problema en [GitHub Issues](https://github.com/Vialtros-ORG/Vialtros/issues).
 
 ### Backend (desarrollo)
 
