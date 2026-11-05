@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="88" viewBox="0 0 360 88" role="img" aria-labelledby="title">
+  <title id="title">Vialtros</title>
+  <g fill="none" stroke="#2563EB" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="34" cy="21" r="8" fill="#2563EB" stroke="none"/>
+    <circle cx="72" cy="21" r="8" fill="#2563EB" stroke="none"/>
+    <path d="M34 30 53 64M72 30 53 64" stroke-width="6"/>
+    <circle cx="53" cy="70" r="6" fill="#2563EB" stroke="none"/>
+  </g>
+  <text x="100" y="61" fill="#111827" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="48" font-weight="700" letter-spacing="-1.5">Vialtros</text>
+</svg>

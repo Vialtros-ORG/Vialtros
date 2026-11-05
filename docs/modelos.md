@@ -1,24 +1,27 @@
 # Modelos de datos — Vialtros
 
-> Última revisión: 23 de septiembre de 2026
-
-Este proyecto usa Django con una base de datos relacional. Por defecto se configura SQLite para desarrollo local y puede usar PostgreSQL en producción mediante variables de entorno. La lógica principal de datos está en `backend/users/models.py` y la configuración de la base de datos en `backend/core/settings.py`.
+Este proyecto usa Django con una base de datos relacional. En desarrollo manual
+se selecciona SQLite cuando no se definen `DB_ENGINE` ni `DB_HOST`; Docker
+Compose configura PostgreSQL 16 para el backend. La lógica principal de datos
+está en `backend/users/models.py` y la configuración de la base de datos en
+`backend/core/settings.py`.
 
 ---
 
 ## 1) Tipo de base de datos
 
-El proyecto está diseñado para trabajar con:
+La aplicación tiene dos configuraciones de ejecución:
 
-- SQLite: valor por defecto en desarrollo, archivo `backend/db.sqlite3`
-- PostgreSQL: opción recomendada para producción, configurada con `DB_ENGINE=django.db.backends.postgresql`
+- SQLite: base local en `backend/db.sqlite3` cuando no se define configuración `DB_*`.
+- PostgreSQL: usado por Docker Compose y disponible en ejecución manual mediante variables `DB_*`.
 
-La configuración actual hace esto:
+En Compose, el backend se conecta a PostgreSQL por el servicio `db` en la red
+Docker y el volumen `postgres_data` conserva sus datos. En desarrollo manual,
+PostgreSQL solo se usa si se configura el motor y sus credenciales.
 
-- Si no hay variables `DB_ENGINE`/`DB_HOST`, usa SQLite.
-- Si existen variables de PostgreSQL, usa PostgreSQL con SSL habilitado.
-
-Esto se define en `backend/core/settings.py` con `DATABASES` y `AUTH_USER_MODEL = 'users.User'`.
+Esto se define en `backend/core/settings.py` con `DATABASES` y
+`AUTH_USER_MODEL = 'users.User'`. Para detalles de ejecución, consulta
+[Docker Compose](docker-compose.md) y [Variables de entorno](variables-entorno.md).
 
 ---
 
@@ -338,7 +341,7 @@ Tiene lógica de validez:
 
 ### Motor actual
 
-- Desarrollo local: SQLite
+- Desarrollo manual: SQLite, salvo que se configure PostgreSQL.
 - Producción recomendada: PostgreSQL
 
 La configuración del proyecto soporta ambos, pero la base de datos real en ambiente local es `backend/db.sqlite3`.

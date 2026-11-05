@@ -1,186 +1,149 @@
-# Docker Compose — Vialtros
+# Entorno local con Docker Compose
 
-## Objetivo de Task #15
-
-Configurar un entorno local integrado con Docker Compose para ejecutar el frontend React, el backend Django y PostgreSQL. Compose construye las imágenes del frontend y backend, conecta los servicios en una red común y conserva los datos de PostgreSQL en un volumen nombrado.
-
-## Arquitectura
-
-```text
-Navegador
-  ├── http://localhost:3000 ──> frontend (React, puerto 3000)
-  ├── http://localhost:8000 ──> backend (Django/Daphne, puerto 8000)
-  └── ws://localhost:8000 ────> backend (WebSocket)
-
-frontend ── HTTP/WebSocket desde el navegador ──> backend
-backend  ── PostgreSQL en vialtros-network ────> db:5432
-
-db ── /var/lib/postgresql/data
-     └── volumen nombrado postgres_data
-```
-
-Los tres servicios pertenecen a la red bridge `vialtros-network`. El backend resuelve PostgreSQL usando el nombre de servicio `db`, no `localhost`. Los valores de API y WebSocket del frontend apuntan a `localhost:8000` porque son usados por el navegador del usuario; el navegador no puede resolver el nombre interno `backend`.
-
-## Servicios configurados
-
-### `db`
-
-- Imagen: `postgres:16-alpine`.
-- Nombre de contenedor: `vialtros-postgres`.
-- Base, usuario y contraseña iniciales: `vialtros`, `vialtros` y `POSTGRES_PASSWORD`, respectivamente.
-- Expone el puerto `5432` del contenedor en el puerto `5432` del host.
-- Monta `postgres_data` en `/var/lib/postgresql/data`.
-- Usa `pg_isready -U vialtros -d vialtros` como healthcheck, con intervalo y timeout de 5 segundos y hasta 10 intentos.
-- La política de reinicio es `unless-stopped`.
-
-### `backend`
-
-- Se construye desde `./backend` con `backend/Dockerfile`.
-- Nombre de contenedor: `vialtros-backend`.
-- Ejecuta Django con Daphne en `0.0.0.0:8000` y expone el puerto `8000` del host.
-- Se conecta a `db:5432` con el motor PostgreSQL de Django; `DB_SSLMODE` está configurado como `disable` para este entorno local.
-- Espera a que `db` tenga estado `healthy` antes de iniciarse.
-- La política de reinicio es `unless-stopped`.
-
-### `frontend`
-
-- Se construye desde `./frontend` con `frontend/Dockerfile`.
-- Nombre de contenedor: `vialtros-frontend`.
-- Sirve la compilación estática de React en el puerto `3000`, publicado como `localhost:3000`.
-- Depende del servicio `backend` para el orden de inicio; esta dependencia no espera a que el backend pase una comprobación de salud.
-- La política de reinicio es `unless-stopped`.
-
-## Red, puertos y comunicación
-
-| Servicio | Puerto publicado | Uso |
-| --- | --- | --- |
-| `frontend` | `3000:3000` | Interfaz web desde el navegador en `http://localhost:3000`. |
-| `backend` | `8000:8000` | API y WebSocket accesibles desde el navegador en el host. |
-| `db` | `5432:5432` | PostgreSQL; el backend también accede al servicio por `db:5432` dentro de la red. |
-
-Compose crea la red bridge `vialtros-network` y la asigna a los tres servicios. La conexión interna entre backend y PostgreSQL no necesita pasar por el puerto publicado del host. El frontend define URLs `localhost` para API y WebSocket, por lo que esas solicitudes las realiza el navegador hacia el puerto publicado del backend.
-
-## Variables de entorno y argumentos de compilación
-
-El archivo Compose no declara `env_file`. Compose interpola las variables indicadas con `${...}` a partir del entorno del proceso o del `.env` de Compose, si existe. Las expresiones con `:-` usan el valor predeterminado cuando la variable no está definida o está vacía.
-
-| Variable / argumento | Valor o comportamiento configurado |
-| --- | --- |
-| `POSTGRES_DB` | `vialtros` en PostgreSQL. |
-| `POSTGRES_USER` | `vialtros` en PostgreSQL. |
-| `POSTGRES_PASSWORD` | `${POSTGRES_PASSWORD:-vialtros_dev_password}`; el backend recibe el mismo valor como `DB_PASSWORD`. |
-| `DB_ENGINE` | `django.db.backends.postgresql`. |
-| `DB_NAME` / `DB_USER` | `vialtros` / `vialtros`. |
-| `DB_HOST` / `DB_PORT` | `db` / `5432`. |
-| `DB_SSLMODE` | `disable`. |
-| `DJANGO_SECRET_KEY` | `${DJANGO_SECRET_KEY:-docker-local-secret-key}`. |
-| `DJANGO_DEBUG` | `${DJANGO_DEBUG:-True}`. |
-| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1,backend`. |
-| `REACT_APP_API_URL` | Argumento de build fijo: `http://localhost:8000/api`. |
-| `REACT_APP_WS_URL` | Argumento de build fijo: `ws://localhost:8000/ws`. |
-
-Los argumentos `REACT_APP_*` se usan durante la compilación de React, no como variables de ejecución del contenedor. Para cambiar las URLs publicadas en el frontend se requiere reconstruir la imagen con los valores deseados.
-
-## Persistencia
-
-El volumen nombrado `postgres_data` conserva los archivos de PostgreSQL en `/var/lib/postgresql/data` cuando los contenedores se detienen o se recrean. `docker compose down` conserva el volumen. `docker compose down -v` lo elimina y puede borrar permanentemente la base local; no usarlo si se necesitan conservar esos datos.
-
-No hay volúmenes configurados para frontend ni backend.
+Docker Compose ejecuta frontend React, backend Django/Daphne y PostgreSQL en
+una red local común. Ejecuta los comandos de esta guía desde la raíz del
+repositorio.
 
 ## Requisitos
 
-- Docker Desktop (o Docker Engine) en ejecución.
-- Docker Compose v2 disponible como `docker compose`.
-- Acceso a la raíz del repositorio, donde está `docker-compose.yml`.
-- Conectividad para descargar las imágenes base y dependencias durante el primer build.
-- Puertos locales `3000`, `8000` y `5432` disponibles.
+- Docker Desktop o Docker Engine en ejecución.
+- Docker Compose v2 (`docker compose`).
+- Puertos locales `3000`, `5432` y `8000` disponibles.
+- Acceso a Internet para descargar imágenes y dependencias durante el primer
+  build.
 
-## Comandos de uso
+No es necesario instalar Python, Node.js ni PostgreSQL en el host para esta
+modalidad.
 
-Ejecutar desde la raíz del repositorio, en PowerShell o una terminal compatible:
+## Servicios y puertos
+
+| Servicio | Imagen / build | Puerto publicado | Función |
+| --- | --- | --- | --- |
+| `frontend` | `frontend/Dockerfile` · Node 20 Alpine | `3000:3000` | Sirve la SPA en `http://localhost:3000`. |
+| `backend` | `backend/Dockerfile` · Python 3.14 slim | `8000:8000` | API REST, Admin Django y WebSocket con Daphne. |
+| `db` | `postgres:16-alpine` | `5432:5432` | Base de datos PostgreSQL. |
+
+El backend se conecta a PostgreSQL por el nombre de servicio `db`, en el puerto
+interno `5432`. El navegador se conecta al backend por `localhost:8000`, que es
+el puerto publicado en el host. La API comienza en
+`http://localhost:8000/api/`, la administración en
+`http://localhost:8000/admin/` y las conexiones WebSocket usan
+`ws://localhost:8000/ws/`.
+
+El servicio `db` tiene healthcheck `pg_isready`; el backend espera a que la base
+esté saludable. El entrypoint del backend aplica migraciones pendientes antes
+de iniciar Daphne. La dependencia del frontend solo ordena el inicio respecto
+al backend y no espera a una comprobación de salud del API.
+
+## Configuración
+
+Compose lee `.env` desde la raíz del repositorio o variables del entorno del
+proceso. No carga `backend/.env` ni `frontend/.env` como configuración de los
+servicios.
+
+Crea tu archivo a partir de la plantilla:
 
 ```powershell
-# Validar la configuración interpolada sin iniciar contenedores
-docker compose config
-
-# Construir las imágenes
-docker compose build
-
-# Construir y arrancar los tres servicios en segundo plano
-docker compose up -d --build
-
-# Revisar estado y healthcheck
-docker compose ps
-
-# Comprobar respuesta HTTP desde el host
-curl.exe -I http://localhost:3000
-curl.exe -I http://localhost:8000/admin/login/
-
-# Consultar logs
-docker compose logs --tail=100
-docker compose logs -f backend
-
-# Comprobaciones de Django y migraciones
-docker compose exec backend python manage.py check
-docker compose exec backend python manage.py showmigrations --plan
-docker compose exec db pg_isready -U vialtros -d vialtros
-
-# Detener servicios conservando postgres_data
-docker compose down
+Copy-Item .env.example .env
 ```
 
-La interfaz queda disponible en `http://localhost:3000`, el backend en `http://localhost:8000` y PostgreSQL en el puerto local `5432`. El endpoint `/` del backend puede redirigir a `/admin/`; el resultado HTTP 302 observado en una validación local no representa un error del servidor.
+En Linux/macOS:
 
-## Validaciones y resultados registrados
+```bash
+cp .env.example .env
+```
 
-### Verificación de configuración en esta sesión
+Completa los valores de desarrollo; no publiques `.env` ni uses los valores de
+ejemplo en un entorno accesible desde redes no confiables.
 
-Se ejecutó:
+| Variable en `.env` | Requerida para Compose | Destino / comportamiento |
+| --- | --- | --- |
+| `POSTGRES_DB` | Sí | Nombre de la base; el backend la usa como `DB_NAME`. |
+| `POSTGRES_USER` | Sí | Usuario de la base; el backend lo usa como `DB_USER`. |
+| `POSTGRES_PASSWORD` | Sí | Contraseña de PostgreSQL y del backend. |
+| `DJANGO_SECRET_KEY` | Sí | Clave secreta de Django. |
+| `DJANGO_DEBUG` | Sí | Django interpreta el texto `True` como modo debug activo. |
+| `DJANGO_ALLOWED_HOSTS` | Sí | Hosts de Django separados por comas. |
+| `FRONTEND_URL` | No | Origen de frontend para enlaces de restablecimiento; predeterminado `http://localhost:3000`. |
+| `CORS_ALLOWED_ORIGINS` | No | Orígenes CORS separados por comas; predeterminado `http://localhost:3000`. |
+| `REACT_APP_API_URL` | No | URL de API de navegador en build; predeterminado `http://localhost:8000/api`. |
+| `REACT_APP_WS_URL` | No | URL WebSocket de navegador en build; predeterminado `ws://localhost:8000/ws`. |
+| `REACT_APP_GOOGLE_MAPS_API_KEY` | No | Clave de navegador de Google Maps, compilada en el frontend. |
+| `REACT_APP_GOOGLE_MAPS_MAP_ID` | No | Map ID de Google Maps, compilado en el frontend. |
+| `REACT_APP_GOOGLE_ROUTES_API_KEY` | No | Clave de Google Routes; el código también puede reutilizar la clave de Maps. |
+| `REACT_APP_MAPBOX_TOKEN` | No | Token de navegador de Mapbox; el mapa de tracking dispone de estilo CartoDB alternativo. |
 
-```powershell
-docker compose version
+Las variables `DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`,
+`DB_PORT` y `DB_SSLMODE` las configura Compose en el contenedor backend. El
+backend usa PostgreSQL (`db:5432`) y `DB_SSLMODE=disable` para este entorno
+local.
+
+Las variables `REACT_APP_*` se pasan como build args y quedan integradas en los
+archivos públicos del frontend. Si cambias una de estas variables, reconstruye
+el frontend:
+
+```bash
+docker compose up --build -d frontend
+```
+
+No incluyas secretos privados en variables `REACT_APP_*`. Las claves de mapas
+son visibles para el cliente; protégelas con restricciones de dominio y API en
+Google Cloud o Mapbox.
+
+## Levantar y operar el stack
+
+Valida la configuración antes de iniciar los contenedores:
+
+```bash
 docker compose config --quiet
 ```
 
-Resultado observado:
+Construye las imágenes e inicia los servicios en segundo plano:
 
-```text
-Docker Compose version v5.5.1
-compose_config_exit=0
+```bash
+docker compose up --build -d
+docker compose ps
 ```
 
-La configuración Compose se procesó sin errores. Esta comprobación no construyó imágenes ni inició los servicios.
+Cuando el stack esté disponible, crea una cuenta de administración (no hay
+credenciales preconfiguradas):
 
-### Resultados de pruebas anteriores documentados en el repositorio
+```bash
+docker compose exec backend python manage.py createsuperuser
+```
 
-La documentación existente de PostgreSQL y backend registra resultados de una validación previa del stack:
+Comandos útiles:
 
-- PostgreSQL alcanzó estado `healthy` y el backend quedó `Up`.
-- Se ejecutaron migraciones de Django sobre PostgreSQL; tras reiniciar sin borrar el volumen, Django indicó `No migrations to apply`.
-- Los conteos de registros antes y después del reinicio coincidieron.
-- `python manage.py check` terminó con `System check identified no issues (0 silenced)`.
-- `makemigrations --check --dry-run` terminó con `No changes detected`.
-- También se registró una comprobación de backend en Docker: `manage.py check` sin problemas, Admin HTTP 200, recursos estáticos HTTP 200 y handshake WebSocket HTTP 101.
+```bash
+docker compose logs --tail=100
+docker compose logs -f backend
+docker compose exec backend python manage.py check
+docker compose exec backend python manage.py test
+docker compose exec backend python manage.py showmigrations --plan
+docker compose exec db sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+docker compose down
+```
 
-Estos resultados son los consignados en [docker-compose-database.md](docker-compose-database.md) y [docker-backend.md](docker-backend.md). No se encontró un resultado previo documentado para el arranque y la comprobación HTTP del servicio frontend integrado en este stack. Por tanto, no se afirma aquí que ese test se haya ejecutado.
+`docker compose down` detiene y elimina los contenedores, pero conserva el
+volumen `postgres_data`. **`docker compose down -v` elimina también el volumen
+y los datos de PostgreSQL.**
 
-## Errores de implementación
+## Arquitectura local
 
-En los registros revisados para Task #15 y la documentación asociada no se encontró un error de Compose con resultado y resolución verificables. Para no atribuir causas o correcciones sin evidencia, no se inventa un incidente. La validación actual de `docker compose config --quiet` terminó con código `0`.
+```mermaid
+flowchart LR
+    Browser[Navegador]
+    Frontend[frontend · React · :3000]
+    Backend[backend · Django / Daphne · :8000]
+    DB[(db · PostgreSQL 16 · :5432)]
+    Volume[(postgres_data)]
 
-## Pendientes y limitaciones conocidas
+    Browser -->|HTTP| Frontend
+    Browser -->|REST /api| Backend
+    Browser <-->|WebSocket /ws| Backend
+    Backend -->|red vialtros-network · db:5432| DB
+    DB --- Volume
+```
 
-- Ejecutar y registrar una prueba completa del frontend integrado: build, arranque, carga en navegador y solicitudes reales de API/WebSocket.
-- Repetir una prueba de ciclo completo de los tres servicios en el estado actual de la configuración Compose y registrar sus resultados.
-- Confirmar la política deseada para `DJANGO_DEBUG` en el entorno compartido; su valor predeterminado actual es `True`.
-- `depends_on` del frontend solo ordena el inicio respecto al backend; no valida que la API esté lista.
-- La configuración es para desarrollo local. No declara TLS ni restricciones de acceso por host para los puertos publicados.
-
-## Consideraciones de seguridad
-
-- Los valores predeterminados `vialtros_dev_password` y `docker-local-secret-key` son credenciales de desarrollo, no secretos aptos para producción. Configurar `POSTGRES_PASSWORD` y `DJANGO_SECRET_KEY` en el entorno local en lugar de reutilizar esos valores fuera de desarrollo.
-- `DJANGO_DEBUG` usa `True` por defecto. No exponer el stack con depuración activa a redes no confiables.
-- Las variables `REACT_APP_*` quedan incorporadas en los recursos compilados y son visibles para quien acceda al frontend; no poner secretos en ellas.
-- El mapeo de puertos publica PostgreSQL, backend y frontend en el host. En equipos o redes compartidos, limitar el acceso a los puertos y no tratar el puerto PostgreSQL publicado como una interfaz segura.
-- `DB_SSLMODE=disable` es adecuado solo para el tráfico local de esta configuración; no es una configuración de transporte cifrado.
-- Evitar `docker compose down -v` si los datos de PostgreSQL deben conservarse.
+Para una vista del sistema y la opción de desarrollo sin Compose, consulta
+[Arquitectura](arquitectura.md).

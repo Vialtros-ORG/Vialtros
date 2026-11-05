@@ -1,15 +1,40 @@
 # Validaciones de CI
 
-El workflow `CI` se ejecuta en cada Pull Request y en los cambios a `Develop`, `master` y `main`. Los análisis de backend y frontend son workflows reutilizables para mantener cada conjunto de pasos independiente.
+## Workflow `CI`
 
-| Check | Qué valida |
+`.github/workflows/ci.yml` se ejecuta en cada Pull Request, en pushes a
+`Develop`, `master` y `main`, y manualmente mediante `workflow_dispatch`.
+
+| Job | Validaciones |
 | --- | --- |
-| `Backend CI (Modular)` | Construye la imagen Docker del backend Django, ejecuta `manage.py check` y toda la suite de pruebas en el contenedor, y espera una respuesta HTTP del admin para confirmar el arranque de Daphne. |
-| `Frontend CI (Modular)` | Instala dependencias con `npm ci`, ejecuta las pruebas React si existen y compila el frontend. CRA permite que el check pase mientras el repositorio no tenga pruebas frontend. |
-| `Docker Compose integration` | Valida `docker-compose.yml`, construye y levanta PostgreSQL, backend Django y frontend React; ejecuta pruebas del backend contra PostgreSQL y verifica respuestas HTTP del frontend y del admin Django. Al final baja los contenedores sin borrar el volumen de PostgreSQL. |
-| `Check changed lines for whitespace errors` | Detecta espacios finales y errores de whitespace en las líneas modificadas. |
-| `Check links in README` | Comprueba que las rutas locales enlazadas desde `README.md` existan. Los enlaces externos no se consultan para evitar fallos por disponibilidad de terceros. |
-| `lint-markdown` | Ejecuta markdownlint sobre los archivos Markdown modificados en el cambio. |
-| `SonarQube` | El workflow SonarCloud analiza Django y React y espera el Quality Gate. La PR #40 amplía su disparador a todas las PR. |
+| Backend | Construye la imagen Docker, ejecuta `python manage.py check`, toda la suite `python manage.py test` y un smoke test HTTP de Daphne. |
+| Frontend | Usa Node 22, ejecuta `npm ci`, las pruebas Jest con `--passWithNoTests` y `npm run build`. |
+| Docker Compose integration | Valida Compose, construye e inicia PostgreSQL/backend/frontend, corre checks y pruebas backend sobre PostgreSQL y comprueba la respuesta HTTP del frontend y Django Admin. |
+| Whitespace | Ejecuta `git diff --check` sobre los cambios del evento. |
+| README links | Comprueba los enlaces locales del `README.md`; no consulta enlaces externos. |
+| Markdown lint | Ejecuta markdownlint sobre archivos Markdown modificados. |
 
-El check adicional `SonarCloud Code Analysis` lo publica la integración de SonarCloud instalada y vinculada al repositorio; no lo crea el workflow `CI`. El secret `SONAR_TOKEN` debe estar configurado en GitHub Actions. El backend de este proyecto es Django, por lo que el análisis no usa el job de NestJS mostrado en otras configuraciones. Para activar el análisis SonarQube en todas las PR, también debe integrarse la PR #40.
+El job de Compose detiene los servicios al terminar sin eliminar los volúmenes.
+La salida y los logs de cada job están disponibles en la pestaña **Actions** del
+Pull Request.
+
+## Workflow SonarQube
+
+`.github/workflows/sonarqube.yml` analiza Pull Requests, pushes a `master` que
+modifiquen rutas incluidas en sus filtros, y permite ejecución manual. Usa
+SonarCloud y requiere el secreto `SONAR_TOKEN` configurado en GitHub Actions.
+
+Este análisis es un workflow independiente del job `CI`; una integración
+externa de GitHub puede publicar checks adicionales que no se definen en este
+repositorio.
+
+## Cómo investigar un fallo
+
+1. Abre el check fallido desde el Pull Request.
+2. Revisa el primer paso que terminó con error y sus logs.
+3. Reproduce localmente el comando de validación correspondiente, si es posible.
+4. Corrige el cambio en la misma rama y publica un nuevo commit.
+5. Espera que CI termine nuevamente antes de solicitar el merge.
+
+Los comandos locales de backend, frontend y Compose están en
+[README](../README.md) y [Docker Compose](docker-compose.md).
