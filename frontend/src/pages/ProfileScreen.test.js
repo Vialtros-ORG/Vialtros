@@ -82,6 +82,29 @@ describe("ProfileScreen", () => {
     expect(saveUserCache).toHaveBeenCalledWith(initialUser);
   });
 
+  test.each([
+    ["x", "42"],
+    ["invalid-token", "camila"],
+  ])("uses the cached profile image key for token %s", async (token, imageKey) => {
+    localStorage.setItem("access", token === "x"
+      ? `header.${btoa(JSON.stringify({ id: 42 }))}.signature`
+      : token);
+    getUserCache.mockReturnValue({
+      first_name: "Ana",
+      last_name: "Pérez",
+      email: "ana@example.com",
+    });
+    getCurrentUser.mockResolvedValue(null);
+    localStorage.setItem(`profileImage_${imageKey}`, "data:image/png;base64,abc");
+
+    await mountProfile();
+
+    expect(container.querySelector('img[alt="Foto de perfil de Ana Pérez"]')).not.toBeNull();
+    expect(container.querySelector('img').getAttribute("src")).toBe(
+      "data:image/png;base64,abc",
+    );
+  });
+
   test("rejects an invalid email before sending the profile update", async () => {
     await mountProfile();
     enterEditMode();
@@ -93,6 +116,59 @@ describe("ProfileScreen", () => {
 
     expect(updateCurrentUser).not.toHaveBeenCalled();
     expect(container.textContent).toContain("Ingresa un correo válido");
+  });
+
+  test("rejects invalid names and phone numbers before saving", async () => {
+    await mountProfile();
+    enterEditMode();
+
+    const inputs = container.querySelectorAll("input:not([type=file])");
+    changeInput(inputs[0], "Camila123");
+    await act(async () => {
+      [...container.querySelectorAll("button")].find((button) => button.textContent.includes("Guardar cambios")).click();
+    });
+    expect(container.textContent).toContain("El nombre y el apellido solo pueden contener");
+
+    changeInput(inputs[0], "Camila");
+    changeInput(inputs[3], "teléfono inválido");
+    await act(async () => {
+      [...container.querySelectorAll("button")].find((button) => button.textContent.includes("Guardar cambios")).click();
+    });
+    expect(container.textContent).toContain("Ingresa un teléfono internacional válido");
+    expect(updateCurrentUser).not.toHaveBeenCalled();
+  });
+
+  test("rejects unsupported and oversized profile photos", async () => {
+    await mountProfile();
+    const fileInput = container.querySelector('input[type="file"]');
+    const selectFile = (file) => {
+      Object.defineProperty(fileInput, "files", {
+        configurable: true,
+        value: [file],
+      });
+      act(() => fileInput.dispatchEvent(new Event("change", { bubbles: true })));
+    };
+
+    selectFile(new File(["image"], "profile.gif", { type: "image/gif" }));
+    expect(container.textContent).toContain("Selecciona una imagen PNG, JPG o WebP.");
+
+    selectFile(new File([new Uint8Array(2 * 1024 * 1024 + 1)], "profile.png", {
+      type: "image/png",
+    }));
+    expect(container.textContent).toContain("La imagen no puede superar los 2 MB.");
+  });
+
+  test("cancels edits and keeps the loaded profile values", async () => {
+    await mountProfile();
+    enterEditMode();
+    const firstName = container.querySelector('input:not([type=file])');
+    changeInput(firstName, "Nombre temporal");
+    act(() => {
+      [...container.querySelectorAll("button")].find((button) => button.textContent.includes("Cancelar")).click();
+    });
+
+    expect(container.querySelector('input:not([type=file])')).toBeNull();
+    expect(container.textContent).toContain("Camila");
   });
 
   test("normalizes valid profile fields and updates the cache", async () => {

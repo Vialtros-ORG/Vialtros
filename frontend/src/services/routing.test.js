@@ -18,6 +18,7 @@ import {
 } from "./routing";
 import {
   getStreetRoute as googleGetStreetRoute,
+  getStreetRouteThroughPoints as googleGetStreetRouteThroughPoints,
   snapPointToRoad as googleSnapPointToRoad,
 } from "./googleRoutesApi";
 
@@ -340,6 +341,47 @@ describe("street routing fallback", () => {
     expect(global.fetch.mock.calls[1][0]).toContain("/route/v1/driving/");
   });
 
+  test("samples valid GPS points, removes duplicates and abrupt jumps, then matches them", async () => {
+    expect(await getTrackedStreetRoute([[91, -77], null])).toBeNull();
+
+    const points = Array.from({ length: 13 }, (_, index) => ({
+      latitude: 3.88 + index * 0.0001,
+      longitude: -77.07 + index * 0.0001,
+      speed_kmh: 20,
+      timestamp: new Date(Date.UTC(2026, 10, 5, 12, 0, index)).toISOString(),
+    }));
+    points.splice(5, 0, { ...points[4] });
+    points.push({
+      latitude: 4.5,
+      longitude: -77,
+      timestamp: new Date(Date.UTC(2026, 10, 5, 12, 1, 0)).toISOString(),
+    });
+
+    const matchResponse = {
+      code: "Ok",
+      tracepoints: Array.from({ length: 13 }, () => ({ distance: 10 })),
+      matchings: [{
+        geometry: {
+          type: "LineString",
+          coordinates: [[-77.07, 3.88], [-77.06, 3.89]],
+        },
+        duration: 120,
+        distance: 600,
+      }],
+    };
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => matchResponse,
+    });
+
+    const route = await getTrackedStreetRoute(points);
+
+    expect(route.provider).toBe("osrm");
+    expect(route.coordinates).toEqual([[3.88, -77.07], [3.89, -77.06]]);
+    expect(global.fetch.mock.calls[0][0]).toContain("/match/v1/driving/");
+    expect(new URL(global.fetch.mock.calls[0][0]).searchParams.has("timestamps")).toBe(true);
+  });
+
   test("uses Google route results first and falls back to OSRM when Google has no route", async () => {
     const googleRoute = { coordinates: [[3.88, -77], [3.89, -77.01]], duration: 60 };
     googleGetStreetRoute.mockResolvedValueOnce(googleRoute);
@@ -349,6 +391,37 @@ describe("street routing fallback", () => {
     googleGetStreetRoute.mockRejectedValueOnce(new Error("Google unavailable"));
     global.fetch.mockResolvedValueOnce({ ok: true, json: async () => routeGeometry });
     expect((await getStreetRoute([3.88, -77], [3.89, -77.01])).provider).toBe("osrm");
+  });
+
+  test("uses a multi-point Google route and merges successful Google segments", async () => {
+    const points = [[3.88, -77.07], [3.885, -77.065], [3.89, -77.06]];
+    const googleRoute = { coordinates: points, duration: 120, provider: "google" };
+    googleGetStreetRouteThroughPoints.mockResolvedValueOnce(googleRoute);
+    await expect(getStreetRouteThroughPoints(points)).resolves.toBe(googleRoute);
+
+    googleGetStreetRouteThroughPoints.mockResolvedValueOnce(null);
+    googleGetStreetRoute
+      .mockResolvedValueOnce({
+        coordinates: [points[0], points[1]],
+        duration: 100,
+        distance: 500,
+      })
+      .mockResolvedValueOnce({
+        coordinates: [points[1], points[2]],
+        duration: 200,
+        distance: 700,
+      });
+
+    await expect(getStreetRouteThroughPoints(points)).resolves.toEqual(
+      expect.objectContaining({
+        coordinates: points,
+        duration: 300,
+        distance: 1200,
+        provider: "google",
+        trafficAware: true,
+        isStraightLine: false,
+      }),
+    );
   });
 
   test("keeps malformed coordinates unchanged and builds road paths only from routed segments", async () => {

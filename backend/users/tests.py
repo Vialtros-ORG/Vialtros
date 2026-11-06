@@ -18,6 +18,8 @@ from .serializers import (
     RouteSerializer,
     TrackingIngestSerializer,
     UserCreateSerializer,
+    UserProfileSerializer,
+    UserSerializer,
 )
 
 
@@ -852,3 +854,80 @@ class CreateAdminCommandTests(APITestCase):
             )
             with self.assertRaises(CommandError):
                 call_command('create_admin', username='secure_admin', email='ADMIN@example.com')
+
+
+class UserSerializerValidationTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='serializer_user',
+            email='serializer@example.com',
+            password='secreto123',
+            first_name='Ana',
+            last_name='Rojas',
+            phone_number='+573001234567',
+        )
+
+    def test_user_serializer_normalizes_fields_and_allows_own_values_on_update(self):
+        serializer = UserSerializer(
+            instance=self.user,
+            data={
+                'username': ' SERIALIZER_USER ',
+                'email': ' SERIALIZER@EXAMPLE.COM ',
+                'first_name': '  ana   maria ',
+                'last_name': ' ROJAS ',
+                'phone_number': '300 123 4567',
+            },
+            partial=True,
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data['username'], 'serializer_user')
+        self.assertEqual(serializer.validated_data['email'], 'serializer@example.com')
+        self.assertEqual(serializer.validated_data['first_name'], 'Ana Maria')
+        self.assertEqual(serializer.validated_data['phone_number'], '+573001234567')
+
+    def test_user_serializer_rejects_invalid_and_duplicate_usernames_and_emails(self):
+        invalid_username = UserSerializer(data={'username': 'ab'}, partial=True)
+        duplicate_username = UserSerializer(
+            data={'username': 'SERIALIZER_USER'},
+            partial=True,
+        )
+        duplicate_email = UserSerializer(
+            data={'username': 'another_user', 'email': 'SERIALIZER@example.com'},
+            partial=True,
+        )
+
+        self.assertFalse(invalid_username.is_valid())
+        self.assertFalse(duplicate_username.is_valid())
+        self.assertFalse(duplicate_email.is_valid())
+        self.assertIn('username', invalid_username.errors)
+        self.assertIn('username', duplicate_username.errors)
+        self.assertIn('email', duplicate_email.errors)
+
+    def test_profile_serializer_allows_own_email_and_rejects_duplicate_email(self):
+        own_email = UserProfileSerializer(
+            instance=self.user,
+            data={
+                'first_name': 'Ana',
+                'last_name': 'Rojas',
+                'email': ' SERIALIZER@EXAMPLE.COM ',
+                'phone_number': '',
+            },
+            partial=True,
+        )
+        other_user = User.objects.create_user(
+            username='other_serializer_user',
+            email='other@example.com',
+            password='secreto123',
+        )
+        duplicate_email = UserProfileSerializer(
+            instance=self.user,
+            data={'email': other_user.email},
+            partial=True,
+        )
+
+        self.assertTrue(own_email.is_valid(), own_email.errors)
+        self.assertEqual(own_email.validated_data['email'], 'serializer@example.com')
+        self.assertEqual(own_email.validated_data['phone_number'], '')
+        self.assertFalse(duplicate_email.is_valid())
+        self.assertIn('email', duplicate_email.errors)
