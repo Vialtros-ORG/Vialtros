@@ -14,6 +14,7 @@ jest.mock("@react-google-maps/api", () => {
     getZoom: jest.fn(() => 14),
     panTo: jest.fn(),
     setCenter: jest.fn(),
+    setOptions: jest.fn(),
     setZoom: jest.fn(),
   };
   globalThis.__mapViewMap = map;
