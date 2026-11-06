@@ -5,8 +5,9 @@ import { getRoutes } from "../services/admin";
 import { sendDriverLocation } from "../services/driverLocation";
 import {
   geocodeAddress,
-  getStreetRoute,
+  getStreetRouteThroughPoints,
   snapPointToRoad,
+  sortStopsByRouteOrder,
 } from "../services/routing";
 
 const GUIDED_ROUTE_SPEED_KMH = 24;
@@ -65,6 +66,7 @@ export default function DriverLocationPage({ role }) {
   const watchIdRef = useRef(null);
   const guidedRouteTimerRef = useRef(null);
   const guidedRoutePointsRef = useRef([]);
+  const guidedRouteDelaysRef = useRef([]);
   const guidedRouteIndexRef = useRef(0);
   const lastSentMsRef = useRef(0);
 
@@ -177,6 +179,7 @@ export default function DriverLocationPage({ role }) {
       guidedRouteTimerRef.current = null;
     }
     guidedRoutePointsRef.current = [];
+    guidedRouteDelaysRef.current = [];
     guidedRouteIndexRef.current = 0;
     setSharing(false);
     setSending(false);
@@ -303,7 +306,7 @@ export default function DriverLocationPage({ role }) {
 
     guidedRouteTimerRef.current = setTimeout(() => {
       void playGuidedRoutePoint(routeId);
-    }, GUIDED_ROUTE_STEP_MS);
+    }, guidedRouteDelaysRef.current[guidedRouteIndexRef.current - 1] || GUIDED_ROUTE_STEP_MS);
   };
 
   const startSharing = () => {
@@ -323,11 +326,17 @@ export default function DriverLocationPage({ role }) {
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
-        setSharing(true);
-        void postPosition(position, selectedRouteId);
+        void postPosition(position, selectedRouteId).then((sent) => {
+          if (sent) setSharing(true);
+        });
       },
       (geoError) => {
+        if (watchIdRef.current != null) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
         setSharing(false);
+        setSharingMode("idle");
         setStatusText("No se pudo acceder a la ubicacion.");
         setError(geoError.message || "Permiso denegado o GPS no disponible.");
       },
@@ -358,15 +367,38 @@ export default function DriverLocationPage({ role }) {
     setStatusText("Calculando la ruta real para iniciar el recorrido...");
 
     try {
-      const [originCoords, destinationCoords] = await Promise.all([
-        geocodeAddress(selectedRoute.origin),
-        geocodeAddress(selectedRoute.destination),
+      const storedOrigin = [selectedRoute.origin_lat, selectedRoute.origin_lng];
+      const storedDestination = [selectedRoute.destination_lat, selectedRoute.destination_lng];
+      const validPoint = (point) =>
+        Array.isArray(point) && point.length === 2 &&
+        point.every((value) => value !== null && value !== undefined && value !== "") &&
+        Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1])) &&
+        Number(point[0]) >= -90 && Number(point[0]) <= 90 &&
+        Number(point[1]) >= -180 && Number(point[1]) <= 180;
+      const [resolvedOrigin, resolvedDestination] = await Promise.all([
+        validPoint(storedOrigin)
+          ? Promise.resolve(storedOrigin.map(Number))
+          : geocodeAddress(selectedRoute.origin),
+        validPoint(storedDestination)
+          ? Promise.resolve(storedDestination.map(Number))
+          : geocodeAddress(selectedRoute.destination),
       ]);
-
-      const streetRoute =
-        originCoords && destinationCoords
-          ? await getStreetRoute(originCoords, destinationCoords)
-          : null;
+      const orderedStops = sortStopsByRouteOrder(selectedRoute.intermediate_stops);
+      const resolvedStops = await Promise.all(orderedStops.map(async (stop) => {
+        const latValue = stop.latitude ?? stop.lat ?? stop.coords?.[0];
+        const lngValue = stop.longitude ?? stop.lng ?? stop.coords?.[1];
+        const coordinates = [latValue, lngValue];
+        if (validPoint(coordinates)) return coordinates.map(Number);
+        const address = stop.address || stop.label || "";
+        return address ? geocodeAddress(address) : null;
+      }));
+      if (!validPoint(resolvedOrigin) || !validPoint(resolvedDestination) || resolvedStops.some((point) => !validPoint(point))) {
+        throw new Error("La ruta tiene un origen, destino o parada sin ubicación válida.");
+      }
+      const routePoints = [resolvedOrigin, ...resolvedStops, resolvedDestination];
+      const streetRoute = routePoints.length >= 2
+        ? await getStreetRouteThroughPoints(routePoints)
+        : null;
 
       const playbackPoints = sampleGuidedRoute(streetRoute?.coordinates || []);
       if (playbackPoints.length < 2) {
@@ -375,6 +407,23 @@ export default function DriverLocationPage({ role }) {
 
       guidedRoutePointsRef.current = playbackPoints;
       guidedRouteIndexRef.current = 0;
+      const distances = playbackPoints.slice(1).map((point, index) => {
+        const previous = playbackPoints[index];
+        const radians = (value) => (value * Math.PI) / 180;
+        const dLat = radians(point[0] - previous[0]);
+        const dLng = radians(point[1] - previous[1]);
+        const a = Math.sin(dLat / 2) ** 2 +
+          Math.cos(radians(previous[0])) * Math.cos(radians(point[0])) *
+          Math.sin(dLng / 2) ** 2;
+        return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      });
+      const totalDistance = distances.reduce((sum, distance) => sum + distance, 0);
+      const totalDurationSeconds = Number(streetRoute.duration) / 1000;
+      guidedRouteDelaysRef.current = distances.map((distance) =>
+        totalDistance > 0 && Number.isFinite(totalDurationSeconds)
+          ? Math.max(1000, (distance / totalDistance) * totalDurationSeconds * 1000)
+          : GUIDED_ROUTE_STEP_MS,
+      );
       lastSentMsRef.current = 0;
       setStatusText(
         "Recorrido guiado listo. Iniciando desde el primer punto de la ruta.",
@@ -395,7 +444,7 @@ export default function DriverLocationPage({ role }) {
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-600">
+            <p className="text-xs font-semibold tracking-[0.22em] text-blue-600">
               {isAdminPreview ? "Modo prueba" : "Modo conductor"}
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
@@ -424,14 +473,14 @@ export default function DriverLocationPage({ role }) {
             <div className="rounded-[26px] border border-blue-100 bg-gradient-to-br from-white via-blue-50/70 to-slate-50 p-5 shadow-sm shadow-blue-100/60">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700/80">
+                  <p className="text-[11px] font-semibold tracking-[0.18em] text-blue-700/80">
                     Ruta activa
                   </p>
                   <h2 className="mt-2 text-lg font-black text-slate-900">
                     {selectedRoute?.name || "Selecciona una ruta"}
                   </h2>
                 </div>
-                <span className="inline-flex rounded-full border border-blue-200 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700 shadow-sm">
+                <span className="inline-flex rounded-full border border-blue-200 bg-white px-3 py-1 text-[11px] font-bold tracking-[0.16em] text-blue-700 shadow-sm">
                   {selectedRoute ? "Lista para salir" : "Pendiente"}
                 </span>
               </div>
@@ -450,7 +499,7 @@ export default function DriverLocationPage({ role }) {
               </select>
               <div className="mt-4 grid gap-3">
                 <div className="rounded-2xl border border-blue-100 bg-white/90 px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  <p className="text-[10px] font-bold tracking-[0.18em] text-slate-400">
                     Origen
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-800">
@@ -459,7 +508,7 @@ export default function DriverLocationPage({ role }) {
                   </p>
                 </div>
                 <div className="rounded-2xl border border-blue-100 bg-white/90 px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  <p className="text-[10px] font-bold tracking-[0.18em] text-slate-400">
                     Destino
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-800">
@@ -480,7 +529,7 @@ export default function DriverLocationPage({ role }) {
             <div className="rounded-[26px] border border-blue-100 bg-gradient-to-br from-white to-blue-50/80 p-5 shadow-sm shadow-blue-100/50">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700/80">
+                  <p className="text-[11px] font-semibold tracking-[0.18em] text-blue-700/80">
                     Estado
                   </p>
                   <div
@@ -493,7 +542,7 @@ export default function DriverLocationPage({ role }) {
                   </div>
                 </div>
                 <div className="rounded-2xl border border-blue-100 bg-white px-3 py-2 text-right shadow-sm">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  <p className="text-[10px] font-bold tracking-[0.18em] text-slate-400">
                     Modo
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-800">
@@ -518,7 +567,7 @@ export default function DriverLocationPage({ role }) {
                       : "En espera"}
                   </p>
                 </div>
-                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                <p className="mt-4 text-xs font-semibold tracking-[0.16em] text-slate-400">
                   Ultimo envio
                 </p>
                 <p className="mt-1 text-sm font-semibold text-slate-700">
@@ -530,7 +579,7 @@ export default function DriverLocationPage({ role }) {
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-2xl border border-blue-100 bg-white/80 px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                  <p className="text-[10px] font-bold tracking-[0.16em] text-slate-400">
                     Canal
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-800">
@@ -540,7 +589,7 @@ export default function DriverLocationPage({ role }) {
                   </p>
                 </div>
                 <div className="rounded-2xl border border-blue-100 bg-white/80 px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                  <p className="text-[10px] font-bold tracking-[0.16em] text-slate-400">
                     Ruta
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-800">
@@ -554,7 +603,7 @@ export default function DriverLocationPage({ role }) {
           {(lastCoords || gpsAccuracy !== null) && (
             <div className="mt-4 grid gap-4 sm:grid-cols-4">
               <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm shadow-blue-100/40">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
                   Latitud
                 </p>
                 <p className="mt-2 text-lg font-bold text-blue-700">
@@ -562,7 +611,7 @@ export default function DriverLocationPage({ role }) {
                 </p>
               </div>
               <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm shadow-blue-100/40">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
                   Longitud
                 </p>
                 <p className="mt-2 text-lg font-bold text-blue-700">
@@ -570,7 +619,7 @@ export default function DriverLocationPage({ role }) {
                 </p>
               </div>
               <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm shadow-blue-100/40">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
                   Velocidad
                 </p>
                 <p className="mt-2 text-lg font-bold text-blue-700">
@@ -586,7 +635,7 @@ export default function DriverLocationPage({ role }) {
                       : "border-rose-100 bg-gradient-to-br from-rose-50 to-white shadow-rose-100/40"
                 }`}
               >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
                   Precision GPS
                 </p>
                 <p
@@ -613,7 +662,7 @@ export default function DriverLocationPage({ role }) {
           <div className="mt-5 rounded-[24px] border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-slate-50 p-4 shadow-inner shadow-blue-100/40">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700/80">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-blue-700/80">
                   Acciones
                 </p>
                 <p className="mt-1 text-sm text-slate-500">
@@ -632,7 +681,7 @@ export default function DriverLocationPage({ role }) {
                   guidedRouteLoading ||
                   !selectedRouteId
                 }
-                className="rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-3 text-sm font-black uppercase tracking-[0.14em] text-white shadow-lg shadow-blue-200 transition hover:from-blue-700 hover:to-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:bg-none disabled:text-slate-500"
+                className="rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-3 text-sm font-black tracking-[0.14em] text-white shadow-lg shadow-blue-200 transition hover:from-blue-700 hover:to-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:bg-none disabled:text-slate-500"
               >
                 {sending ? "Enviando..." : "Iniciar transmision"}
               </button>
@@ -647,7 +696,7 @@ export default function DriverLocationPage({ role }) {
                   guidedRouteLoading ||
                   !selectedRouteId
                 }
-                className="rounded-2xl border border-blue-200 bg-white px-5 py-3 text-sm font-black uppercase tracking-[0.14em] text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500"
+                className="rounded-2xl border border-blue-200 bg-white px-5 py-3 text-sm font-black tracking-[0.14em] text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500"
               >
                 {guidedRouteLoading
                   ? "Calculando ruta..."

@@ -43,7 +43,7 @@ export default function StatCard({
         )}
       </div>
       <div>
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.2em]">
+        <p className="text-[10px] font-semibold text-slate-400 tracking-[0.2em]">
           {label}
         </p>
         <p className="mt-1.5 text-[2rem] font-bold tracking-tight text-slate-900 leading-none">

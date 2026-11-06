@@ -76,8 +76,9 @@ function MapPreview() {
   );
 }
 
-export default function HeroCard({ role }) {
-  const { trackingLink, trackingEnabled } = useTrackingRoute(role);
+export default function HeroCard({ role, trackingState: suppliedTrackingState }) {
+  const ownTrackingState = useTrackingRoute(role);
+  const { trackingLink, trackingEnabled } = suppliedTrackingState || ownTrackingState;
 
   return (
     <div
@@ -101,7 +102,7 @@ export default function HeroCard({ role }) {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
           </span>
-          <span className="text-xs font-semibold text-emerald-300 uppercase tracking-widest">
+          <span className="text-xs font-semibold text-emerald-300 tracking-widest">
             Sistema activo
           </span>
         </div>

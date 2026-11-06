@@ -8,9 +8,12 @@ import { getRoutes } from "../../services/admin";
 const DEFAULT_TRACKING_STATE = {
   trackingLink: "/tracking/1",
   trackingEnabled: false,
+  trackingResolved: false,
 };
 
-async function resolveTrackingRouteId(role) {
+const routeLookupCache = new Map();
+
+async function loadTrackingRouteId(role) {
   if (role === "driver") {
     const routes = await getDriverAssignedRoutes();
     return routes?.[0]?.id ?? null;
@@ -29,6 +32,19 @@ async function resolveTrackingRouteId(role) {
   return null;
 }
 
+function resolveTrackingRouteId(role) {
+  const cached = routeLookupCache.get(role);
+  if (cached) return cached;
+
+  const promise = loadTrackingRouteId(role);
+  routeLookupCache.set(role, promise);
+  const clearCachedPromise = () => {
+    if (routeLookupCache.get(role) === promise) routeLookupCache.delete(role);
+  };
+  promise.then(clearCachedPromise, clearCachedPromise);
+  return promise;
+}
+
 export default function useTrackingRoute(role) {
   const [trackingState, setTrackingState] = useState(DEFAULT_TRACKING_STATE);
 
@@ -44,14 +60,15 @@ export default function useTrackingRoute(role) {
           setTrackingState({
             trackingLink: `/tracking/${routeId}`,
             trackingEnabled: true,
+            trackingResolved: true,
           });
           return;
         }
 
-        setTrackingState(DEFAULT_TRACKING_STATE);
+        setTrackingState({ ...DEFAULT_TRACKING_STATE, trackingResolved: true });
       } catch {
         if (mounted) {
-          setTrackingState(DEFAULT_TRACKING_STATE);
+          setTrackingState({ ...DEFAULT_TRACKING_STATE, trackingResolved: true });
         }
       }
     }

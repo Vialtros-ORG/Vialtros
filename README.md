@@ -135,14 +135,17 @@ dos modos de desarrollo están en [docs/variables-entorno.md](docs/variables-ent
 | `CORS_ALLOWED_ORIGINS` | Orígenes web autorizados; por defecto `http://localhost:3000`. |
 | `FRONTEND_URL` | URL usada para enlaces de restablecimiento de contraseña; por defecto `http://localhost:3000`. |
 | `REACT_APP_API_URL`, `REACT_APP_WS_URL` | URLs del API y WebSocket compiladas en el frontend. |
-| `REACT_APP_GOOGLE_MAPS_API_KEY`, `REACT_APP_GOOGLE_MAPS_MAP_ID` | Configuración opcional de Google Maps. |
+| `REACT_APP_GOOGLE_MAPS_API_KEY`, `REACT_APP_GOOGLE_MAPS_MAP_ID` | Clave del navegador para Google Maps y Map ID opcional. |
 | `REACT_APP_GOOGLE_ROUTES_API_KEY` | Clave opcional de Google Routes; puede reutilizar la clave de Maps. |
-| `REACT_APP_MAPBOX_TOKEN` | Token opcional para el mapa Mapbox; el mapa de tracking tiene alternativa CartoDB. |
+| `REACT_APP_MAPBOX_TOKEN` | Token público opcional para el componente alternativo Mapbox. |
+| `REACT_APP_ROUTING_API_URL` | URL opcional de un servicio compatible con OSRM; por defecto se usa su servidor público de demostración. |
 
 Las variables `REACT_APP_*` se incorporan al JavaScript que recibe el navegador;
 no pongas secretos privados en ellas. Las claves de mapas son visibles para el
-cliente: restrínge su uso por API y dominio en el proveedor. Si cambias una
-variable de frontend en `.env`, reconstruye la imagen con
+cliente: cada integrante debe configurar claves propias y restringir su uso
+por API y dominio en el proveedor. Consulta la guía de
+[mapas y rutas](docs/mapas.md) para crear y configurar las claves. Si cambias
+una variable de frontend en `.env`, reconstruye la imagen con
 `docker compose up --build -d frontend`.
 
 ## Pruebas
@@ -174,7 +177,7 @@ Consulta [docs/ci-checks.md](docs/ci-checks.md) para el detalle de cada check.
 | Frontend | React 19 · Create React App (`react-scripts`) · Tailwind CSS · React Router |
 | Persistencia en Compose | PostgreSQL 16 (`postgres:16-alpine`) |
 | Persistencia en desarrollo manual | SQLite por defecto; PostgreSQL configurable |
-| Mapas | Google Maps / Google Routes y Mapbox con alternativas según componente |
+| Mapas | Google Maps / Places / Routes, OSRM y OpenStreetMap; Mapbox opcional |
 | Calidad e integración | Docker Compose · GitHub Actions |
 
 Las dependencias Python no están fijadas a una versión concreta en
@@ -193,21 +196,123 @@ Django. Los detalles de componentes y límites están en
 | [docs/api.md](docs/api.md) | Endpoints REST y WebSocket |
 | [docs/modelos.md](docs/modelos.md) | Entidades y relaciones de datos |
 | [docs/frontend.md](docs/frontend.md) | Páginas, componentes y servicios del frontend |
-| [docs/mapas.md](docs/mapas.md) | Configuración de Google Maps, Routes y Mapbox |
+| [docs/mapas.md](docs/mapas.md) | Proveedores de mapas, creación y restricciones de claves, variables, fallbacks y solución de problemas |
 | [docs/ci-checks.md](docs/ci-checks.md) | Workflows y validaciones automáticas |
 | [docs/despliegue.md](docs/despliegue.md) | Modos de ejecución y workflows de despliegue disponibles |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Ramas, commits, Pull Requests y revisión |
 
 ## Contribuir
 
-El trabajo se integra mediante Pull Request a `Develop`. Crea tu rama desde
-`Develop`, vincula la tarea de Trello y ejecuta las validaciones pertinentes.
-Consulta la [guía para contribuir](CONTRIBUTING.md) para seguir el flujo del
-equipo y la [plantilla del Pull Request](.github/PULL_REQUEST_TEMPLATE.md) para
-preparar la descripción.
+El trabajo se integra mediante Pull Request (PR) hacia `Develop`; no trabajes
+directamente sobre `Develop` ni abras la PR hacia `master`. Vincula la tarea al
+[tablero de GitHub Projects](https://github.com/orgs/Vialtros-ORG/projects/1)
+y sigue estos pasos.
+
+### 1. Actualiza `Develop`
+
+Desde la carpeta del repositorio, verifica que no tengas cambios locales que
+puedas perder y actualiza la rama base:
+
+```powershell
+git status --short
+git switch Develop
+git fetch origin
+git pull --ff-only origin Develop
+```
+
+Si tienes cambios propios sin guardar, consérvalos antes de cambiar de rama.
+No incluyas trabajo ajeno o no relacionado con tu PR.
+
+### 2. Crea una rama temporal
+
+Crea la rama desde el `Develop` actualizado. Usa minúsculas, guiones y el
+número del issue de GitHub asociado cuando exista:
+
+| Tipo de cambio | Ejemplo |
+| --- | --- |
+| Funcionalidad | `feat/123-busqueda-de-rutas` |
+| Corrección | `fix/123-error-de-seguimiento` |
+| Documentación | `docs/123-guia-de-mapas` |
+| Tarea técnica | `task/123-actualizar-dependencias` |
+
+Si el elemento de GitHub Projects no tiene issue asociado, usa una descripción
+corta que identifique el cambio.
+
+```powershell
+git switch -c docs/123-guia-de-mapas
+git branch --show-current
+```
+
+### 3. Implementa y valida
+
+Limita la rama a la tarea vinculada y ejecuta las validaciones pertinentes.
+Como mínimo, revisa los cambios y errores de formato:
+
+```powershell
+git diff --check
+git status --short
+git diff
+```
+
+Ejecuta pruebas, build o lint según las áreas modificadas. Los comandos de
+referencia están en [Pruebas](#pruebas) y los checks automáticos en
+[docs/ci-checks.md](docs/ci-checks.md). Registra en la PR cada comando
+ejecutado y su resultado real.
+
+### 4. Crea commits
+
+Agrega solo los archivos de la tarea, revisa lo preparado y usa mensajes
+concisos siguiendo la convención `<tipo>: <descripción>`:
+
+```powershell
+git add README.md docs\archivo-modificado.md
+git diff --cached
+git commit -m "docs: documentar configuración de mapas"
+git status --short
+```
+
+Tipos habituales: `feat`, `fix`, `docs`, `test`, `refactor`, `ci` y `chore`.
+No agregues `.env`, claves de API, contraseñas ni archivos generados.
+
+### 5. Publica y abre la PR
+
+Integra los cambios recientes de `Develop` antes de publicar:
+
+```powershell
+git fetch origin
+git rebase origin/Develop
+```
+
+Resuelve manualmente cualquier conflicto, revisa el resultado y continúa con
+`git add <archivos-resueltos>` y `git rebase --continue`. Después, publica la
+rama y abre una PR hacia `Develop`:
+
+```powershell
+git push -u origin docs/123-guia-de-mapas
+```
+
+Completa la [plantilla de PR](.github/PULL_REQUEST_TEMPLATE.md) sin quitar sus
+secciones ni checklist. Enlaza el issue o elemento del
+[tablero de GitHub Projects](https://github.com/orgs/Vialtros-ORG/projects/1),
+solicita revisión y anota los comandos con sus resultados. Consulta también
+[CONTRIBUTING.md](CONTRIBUTING.md) para el flujo del equipo.
+
+### 6. Después de integrar la PR
+
+Actualiza tu `Develop` local y elimina la rama temporal:
+
+```powershell
+git switch Develop
+git fetch origin
+git pull --ff-only origin Develop
+git branch -d docs/123-guia-de-mapas
+```
+
+Elimina también la rama remota desde GitHub cuando la PR se haya integrado.
 
 ## Proyecto y equipo
 
 Vialtros es un proyecto académico de gestión de rutas. Consulta el
 [repositorio en GitHub](https://github.com/Vialtros-ORG/Vialtros) y el
-[tablero de Trello](https://trello.com/b/Uu3eBPav/vialtros).
+[tablero de GitHub Projects](https://github.com/orgs/Vialtros-ORG/projects/1),
+donde se organiza el trabajo del equipo.

@@ -1,9 +1,201 @@
+from asgiref.sync import async_to_sync
+from channels.testing import WebsocketCommunicator
+from core.asgi import application
+from django.test import TransactionTestCase
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import AccessToken
 
 from .models import Driver, Passenger, Route, Tracking, User
+from .serializers import (
+    DriverSerializer,
+    PassengerSerializer,
+    RouteSerializer,
+    TrackingIngestSerializer,
+    UserCreateSerializer,
+)
+
+
+class MyConductorEndpointTests(APITestCase):
+	def setUp(self):
+		self.passenger_user = User.objects.create_user(
+			username='passenger_route_test',
+			password='secreto123',
+			role='user',
+		)
+
+	def test_missing_passenger_profile_returns_conflict(self):
+		self.client.force_authenticate(user=self.passenger_user)
+
+		response = self.client.get('/api/users/my_conductor/')
+
+		self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+		self.assertIn('perfil de pasajero', response.data['detail'])
+
+	def test_non_passenger_role_is_forbidden(self):
+		driver_user = User.objects.create_user(
+			username='driver_route_test',
+			password='secreto123',
+			role='driver',
+		)
+		self.client.force_authenticate(user=driver_user)
+
+		response = self.client.get('/api/users/my_conductor/')
+
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_passenger_receives_route_and_stop_coordinates(self):
+		passenger = Passenger.objects.create(
+			user=self.passenger_user,
+			phone='3000000000',
+			pickup_address='Parada de prueba',
+			pickup_lat=3.88982,
+			pickup_lng=-77.07077,
+		)
+		driver_user = User.objects.create_user(
+			username='assigned_driver_test',
+			password='secreto123',
+			role='driver',
+		)
+		driver = Driver.objects.create(user=driver_user, license_number='DRV-TEST')
+		route = Route.objects.create(
+			name='Ruta de prueba',
+			origin='Buenaventura Centro',
+			destination='Bellavista',
+			origin_lat=3.8891,
+			origin_lng=-77.0284,
+			destination_lat=3.88291,
+			destination_lng=-77.04041,
+			driver=driver,
+		)
+		route.passengers.add(passenger)
+		self.client.force_authenticate(user=self.passenger_user)
+
+		response = self.client.get('/api/users/my_conductor/')
+
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertEqual(response.data['route']['id'], route.id)
+		self.assertEqual(response.data['driver']['id'], driver.id)
+		self.assertEqual(len(response.data['route']['intermediate_stops']), 1)
+		self.assertEqual(
+			response.data['route']['intermediate_stops'][0]['latitude'],
+			passenger.pickup_lat,
+		)
+
+	def test_passenger_tracking_feed_contains_bus_gps_and_only_own_status(self):
+		passenger = Passenger.objects.create(
+			user=self.passenger_user,
+			phone='3000000000',
+			pickup_address='Parada de prueba',
+			pickup_lat=3.88982,
+			pickup_lng=-77.07077,
+		)
+		other_passenger = Passenger.objects.create(
+			user=User.objects.create_user(
+				username='other_passenger_test',
+				password='secreto123',
+				role='user',
+			),
+			phone='3000000001',
+		)
+		route = Route.objects.create(
+			name='Ruta compartida de prueba',
+			origin='Centro',
+			destination='Bellavista',
+		)
+		route.passengers.add(passenger, other_passenger)
+		bus_gps = Tracking.objects.create(
+			route=route,
+			latitude=3.8891,
+			longitude=-77.0284,
+		)
+		own_status = Tracking.objects.create(
+			route=route,
+			passenger=passenger,
+			latitude=3.89,
+			longitude=-77.03,
+		)
+		Tracking.objects.create(
+			route=route,
+			passenger=other_passenger,
+			latitude=3.88,
+			longitude=-77.04,
+		)
+		self.client.force_authenticate(user=self.passenger_user)
+
+		response = self.client.get(f'/api/tracking/?route={route.id}')
+
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertEqual(
+			{item['id'] for item in response.data},
+			{bus_gps.id, own_status.id},
+		)
+		stats = self.client.get('/api/users/dashboard_stats/')
+		self.assertEqual(stats.status_code, status.HTTP_200_OK)
+		self.assertEqual(stats.data['routes'], 1)
+		self.assertEqual(stats.data['users'], 2)
+		self.assertEqual(stats.data['trackings'], 2)
+
+
+class TrackingWebSocketAccessTests(TransactionTestCase):
+	def setUp(self):
+		self.admin = User.objects.create_user(
+			username='ws_admin_test', password='secreto123', role='admin'
+		)
+		self.driver_user = User.objects.create_user(
+			username='ws_driver_test', password='secreto123', role='driver'
+		)
+		self.driver = Driver.objects.create(
+			user=self.driver_user, license_number='WS-DRV-001'
+		)
+		self.passenger_user = User.objects.create_user(
+			username='ws_passenger_test', password='secreto123', role='user'
+		)
+		self.passenger = Passenger.objects.create(
+			user=self.passenger_user, phone='3000000000'
+		)
+		self.route = Route.objects.create(
+			name='Ruta WebSocket', origin='Centro', destination='Terminal',
+			driver=self.driver,
+		)
+		self.route.passengers.add(self.passenger)
+		self.other_driver = User.objects.create_user(
+			username='ws_other_driver_test', password='secreto123', role='driver'
+		)
+		Driver.objects.create(user=self.other_driver, license_number='WS-DRV-002')
+
+	def connect_as(self, user=None):
+		token = f'?token={AccessToken.for_user(user)}' if user else ''
+		communicator = WebsocketCommunicator(
+			application,
+			f'/ws/tracking/{self.route.id}/{token}',
+		)
+
+		async def connect_and_disconnect():
+			connected, detail = await communicator.connect()
+			if connected:
+				await communicator.disconnect()
+			return connected, detail
+
+		return async_to_sync(connect_and_disconnect)()
+
+	def test_tracking_websocket_requires_authentication(self):
+		connected, close_code = self.connect_as()
+
+		self.assertFalse(connected)
+		self.assertEqual(close_code, 4401)
+
+	def test_tracking_websocket_allows_assigned_roles_only(self):
+		for user in (self.admin, self.driver_user, self.passenger_user):
+			with self.subTest(role=user.role):
+				connected, _ = self.connect_as(user)
+				self.assertTrue(connected)
+
+		connected, close_code = self.connect_as(self.other_driver)
+		self.assertFalse(connected)
+		self.assertEqual(close_code, 4403)
 
 
 @override_settings(TRACKING_INGEST_TOKEN='gps-demo-token')
@@ -461,3 +653,139 @@ class RoutePermissionTests(APITestCase):
             response.status_code,
             status.HTTP_403_FORBIDDEN,
         )
+
+
+class UserInputAcceptanceTests(APITestCase):
+    def valid_user_payload(self, **overrides):
+        payload = {
+            'username': '  Juan.Perez ',
+            'first_name': '  aNA   mARÍA ',
+            'last_name': "o'NEILL",
+            'email': '  ANA@EXAMPLE.COM ',
+            'role': 'user',
+            'password': 'vialtros-Strong-2026!42',
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_user_fields_are_trimmed_normalized_and_validated(self):
+        serializer = UserCreateSerializer(data=self.valid_user_payload())
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        user = serializer.save()
+
+        self.assertEqual(user.username, 'juan.perez')
+        self.assertEqual(user.first_name, 'Ana María')
+        self.assertEqual(user.last_name, "O'Neill")
+        self.assertEqual(user.email, 'ana@example.com')
+
+    def test_user_name_rejects_numbers_and_invalid_username(self):
+        bad_name = UserCreateSerializer(data=self.valid_user_payload(first_name='Ana2'))
+        bad_username = UserCreateSerializer(data=self.valid_user_payload(username='ana perez'))
+
+        self.assertFalse(bad_name.is_valid())
+        self.assertIn('first_name', bad_name.errors)
+        self.assertFalse(bad_username.is_valid())
+        self.assertIn('username', bad_username.errors)
+
+    def test_duplicate_usernames_and_emails_are_case_insensitive(self):
+        User.objects.create_user(
+            username='juan.perez',
+            email='ana@example.com',
+            password='existing-Strong-2026!42',
+        )
+        serializer = UserCreateSerializer(data=self.valid_user_payload())
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('username', serializer.errors)
+        self.assertIn('email', serializer.errors)
+
+    def test_new_user_password_must_meet_project_policy(self):
+        serializer = UserCreateSerializer(
+            data=self.valid_user_payload(password='12345678')
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('password', serializer.errors)
+
+    def test_passenger_phone_is_normalized_to_colombian_e164(self):
+        user = User.objects.create_user(username='phone_test', password='secreto123')
+        serializer = PassengerSerializer(data={
+            'user': user.id,
+            'phone': '(300) 123-4567',
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        passenger = serializer.save()
+        self.assertEqual(passenger.phone, '+573001234567')
+
+    def test_passenger_phone_rejects_invalid_length(self):
+        user = User.objects.create_user(username='phone_invalid', password='secreto123')
+        serializer = PassengerSerializer(data={
+            'user': user.id,
+            'phone': '123',
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('phone', serializer.errors)
+
+    def test_driver_license_is_trimmed_and_canonicalized(self):
+        user = User.objects.create_user(username='license_test', password='secreto123')
+        serializer = DriverSerializer(data={
+            'user': user.id,
+            'license_number': ' lic-1234 ',
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        driver = serializer.save()
+        self.assertEqual(driver.license_number, 'LIC-1234')
+
+
+class CoordinateInputAcceptanceTests(APITestCase):
+    def setUp(self):
+        self.route = Route.objects.create(
+            name='Ruta de coordenadas',
+            origin='Centro',
+            destination='Puerto',
+        )
+
+    def test_route_rejects_latitude_outside_earth_bounds(self):
+        serializer = RouteSerializer(data={
+            'name': 'Ruta de prueba',
+            'origin': 'Centro',
+            'destination': 'Puerto',
+            'origin_lat': 91,
+            'origin_lng': -77,
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('origin_lat', serializer.errors)
+
+    def test_route_requires_coordinate_pairs(self):
+        serializer = RouteSerializer(data={
+            'name': 'Ruta de prueba',
+            'origin': 'Centro',
+            'destination': 'Puerto',
+            'origin_lat': 3.9,
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('origin_lat', serializer.errors)
+
+    def test_tracking_ingest_rejects_invalid_gps_and_speed(self):
+        invalid_latitude = TrackingIngestSerializer(data={
+            'route': self.route.id,
+            'latitude': 91,
+            'longitude': -77,
+        })
+        invalid_speed = TrackingIngestSerializer(data={
+            'route': self.route.id,
+            'latitude': 3.9,
+            'longitude': -77,
+            'speed_kmh': 301,
+        })
+
+        self.assertFalse(invalid_latitude.is_valid())
+        self.assertIn('latitude', invalid_latitude.errors)
+        self.assertFalse(invalid_speed.is_valid())
+        self.assertIn('speed_kmh', invalid_speed.errors)

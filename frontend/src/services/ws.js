@@ -108,7 +108,10 @@ if (!Number.isFinite(normalizedRouteId)) {
   }
 
   const connect = () => {
-    const wsUrl = `${resolveWsBaseUrl()}/tracking/${normalizedRouteId}/`;
+    const token =
+      typeof localStorage !== "undefined" ? localStorage.getItem("access") : null;
+    const authQuery = token ? `?token=${encodeURIComponent(token)}` : "";
+    const wsUrl = `${resolveWsBaseUrl()}/tracking/${normalizedRouteId}/${authQuery}`;
     socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {

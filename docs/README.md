@@ -12,7 +12,7 @@ instalación; esta página organiza el detalle técnico sin repetir esos pasos.
 | [Frontend](frontend.md) | Estructura, páginas, componentes y servicios React |
 | [API](api.md) | Endpoints REST, autenticación y WebSocket |
 | [Modelos de datos](modelos.md) | Entidades, relaciones y persistencia |
-| [Mapas y rutas](mapas.md) | Google Maps, Google Routes, Mapbox y variables de configuración |
+| [Mapas y rutas](mapas.md) | Arquitectura, creación y restricciones de claves propias, proveedores, variables y solución de problemas |
 
 ## Ejecución y operación
 
@@ -27,6 +27,9 @@ instalación; esta página organiza el detalle técnico sin repetir esos pasos.
 
 ## Contribuir
 
-Consulta la [guía de contribución](../CONTRIBUTING.md) para ramas, commits,
-Pull Requests y validación local. Las guías deben mantenerse alineadas con los
-archivos de configuración y workflows del repositorio.
+Sigue el [flujo completo de contribución](../README.md#contribuir), desde
+actualizar `Develop` y crear una rama temporal hasta validar, abrir la PR y
+limpiar la rama integrada. Usa la
+[plantilla del Pull Request](../.github/PULL_REQUEST_TEMPLATE.md) y consulta
+[CONTRIBUTING.md](../CONTRIBUTING.md). Las guías deben mantenerse alineadas
+con los archivos de configuración y workflows del repositorio.

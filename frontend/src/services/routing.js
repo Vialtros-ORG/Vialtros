@@ -10,6 +10,14 @@ import {
 
 
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
+// OSRM demo is a fallback for development/student deployments. Production should
+// point this at an owned routing service to control availability and privacy.
+const OSRM_BASE_URL = (
+  process.env.REACT_APP_ROUTING_API_URL || "https://router.project-osrm.org"
+).replace(/\/+$/, "");
+const OSRM_TIMEOUT_MS = 12000;
+const OSRM_MAX_COORDINATES = 100;
+const MAX_WAYPOINT_SNAP_DISTANCE_M = 1200;
 
 // Buenaventura viewbox: minLng,minLat,maxLng,maxLat
 const BVA_VIEWBOX = "-77.18,3.72,-76.85,4.02";
@@ -18,6 +26,8 @@ const geocodeCache = new Map();
 const TRACK_MAX_POINT_JUMP_KM = 1.4;
 const snapCache = new Map();
 const SNAP_CACHE_MAX = 400;
+const streetRouteCache = new Map();
+const STREET_ROUTE_CACHE_MAX = 100;
 export const BUENAVENTURA_CENTER = [3.89243, -77.02824];
 export const BUENAVENTURA_URBAN_BOUNDS = {
   minLat: 3.84,
@@ -121,7 +131,7 @@ const REAL_BUENAVENTURA_PLACES = [
     coords: [3.88126, -77.01018],
   },
   {
-    name: "INSTITUCION EDUCATIVA TERMARIT",
+    name: "Institución educativa Termarit",
     aliases: ["institucion educativa termarit carrera 53"],
     coords: [3.87851, -77.01242],
   },
@@ -237,6 +247,21 @@ export function isWithinBuenaventuraZone(coords) {
   );
 }
 
+export function sortStopsByRouteOrder(stops) {
+  return (Array.isArray(stops) ? stops : [])
+    .map((stop, index) => {
+      const rawOrder = stop?.order ?? stop?.sequence ?? stop?.stop_order ?? stop?.position;
+      const parsedOrder = rawOrder == null || rawOrder === "" ? index : Number(rawOrder);
+      return {
+        stop,
+        index,
+        order: Number.isFinite(parsedOrder) ? parsedOrder : index,
+      };
+    })
+    .sort((a, b) => a.order - b.order || a.index - b.index)
+    .map(({ stop }) => stop);
+}
+
 function sanitizeBuenaventuraCoords(coords, fallbackCoords = null) {
   if (isWithinBuenaventuraZone(coords)) return coords;
   if (isWithinBuenaventuraZone(fallbackCoords)) return fallbackCoords;
@@ -338,12 +363,201 @@ function mergePolylineSegments(segments) {
 
 
 
-function anchorRouteEndpoints(coordinates, from, to) {
-  if (!Array.isArray(coordinates) || coordinates.length < 2) return coordinates;
-  const anchored = [...coordinates];
-  anchored[0] = from;
-  anchored[anchored.length - 1] = to;
-  return anchored;
+function validCoordinatePair(point) {
+  return (
+    Array.isArray(point) &&
+    point.length === 2 &&
+    Number.isFinite(point[0]) &&
+    Number.isFinite(point[1]) &&
+    point[0] >= -90 && point[0] <= 90 &&
+    point[1] >= -180 && point[1] <= 180
+  );
+}
+
+function routeCacheKey(points) {
+  return points.map(([lat, lng]) => `${lat.toFixed(5)},${lng.toFixed(5)}`).join(";");
+}
+
+function rememberStreetRoute(key, route) {
+  if (streetRouteCache.size >= STREET_ROUTE_CACHE_MAX) {
+    streetRouteCache.delete(streetRouteCache.keys().next().value);
+  }
+  streetRouteCache.set(key, route);
+}
+
+function osrmInstruction(maneuver = {}, roadName = "") {
+  const turnNames = {
+    "sharp left": "a la izquierda cerrada",
+    left: "a la izquierda",
+    "slight left": "ligeramente a la izquierda",
+    straight: "de frente",
+    "slight right": "ligeramente a la derecha",
+    right: "a la derecha",
+    "sharp right": "a la derecha cerrada",
+    "uturn": "en U",
+  };
+  const typeNames = {
+    depart: "Inicia el recorrido",
+    arrive: "Llegaste a tu destino",
+    turn: "Gira",
+    "new name": "Continúa",
+    "continue": "Continúa",
+    merge: "Incorpórate",
+    "on ramp": "Toma la entrada",
+    "off ramp": "Toma la salida",
+    fork: "En la bifurcación, continúa",
+    "end of road": "Al final de la vía, gira",
+    roundabout: "En la rotonda, toma la salida",
+    rotary: "En la rotonda, toma la salida",
+    notification: "Continúa por la vía",
+  };
+  const type = String(maneuver.type || "continue").toLowerCase();
+  const modifier = turnNames[String(maneuver.modifier || "").toLowerCase()];
+  const base = typeNames[type] || "Continúa";
+  const direction = ["turn", "end of road", "fork"].includes(type) && modifier
+    ? ` ${modifier}`
+    : "";
+  const road = roadName ? ` por ${roadName}` : "";
+  return `${base}${direction}${road}`.trim();
+}
+
+async function requestOSRM(service, points, params = {}) {
+  if (points.length < 2 || points.length > OSRM_MAX_COORDINATES) return null;
+  const coordinates = points.map(([lat, lng]) => `${lng},${lat}`).join(";");
+  const url = new URL(`${OSRM_BASE_URL}/${service}/v1/driving/${coordinates}`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null) url.searchParams.set(key, String(value));
+  });
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), OSRM_TIMEOUT_MS);
+  try {
+    const response = await fetch(url.toString(), { signal: controller.signal });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function normalizeOSRMRoute(route, waypoints = []) {
+  const rawCoordinates = route?.geometry?.coordinates;
+  if (!Array.isArray(rawCoordinates) || rawCoordinates.length < 2) return null;
+
+  // Reject routes that silently snap a stop to a distant road or skip a stop.
+  if (
+    waypoints.some((waypoint) =>
+      Number.isFinite(waypoint?.distance) &&
+      waypoint.distance > MAX_WAYPOINT_SNAP_DISTANCE_M,
+    )
+  ) return null;
+
+  const coordinates = rawCoordinates
+    .map((point) => Array.isArray(point) ? [Number(point[1]), Number(point[0])] : null)
+    .filter(validCoordinatePair);
+  if (coordinates.length < 2) return null;
+
+  const steps = (route.legs || []).flatMap((leg) => leg.steps || [])
+    .map((step) => {
+      const location = step.maneuver?.location;
+      if (!Array.isArray(location) || location.length < 2) return null;
+      return {
+        location: [Number(location[1]), Number(location[0])],
+        instruction: osrmInstruction(step.maneuver, step.name),
+        distance: Number(step.distance) || 0,
+        duration: (Number(step.duration) || 0) * 1000,
+      };
+    })
+    .filter((step) => step && validCoordinatePair(step.location));
+
+  return {
+    coordinates,
+    duration: (Number(route.duration) || 0) * 1000,
+    distance: Number(route.distance) || 0,
+    steps: steps.length ? steps : null,
+    provider: "osrm",
+    trafficAware: false,
+    isStraightLine: false,
+  };
+}
+
+async function getOSRMStreetRouteThroughPoints(points) {
+  const key = routeCacheKey(points);
+  const cached = streetRouteCache.get(key);
+  if (cached) return cached;
+
+  const data = await requestOSRM("route", points, {
+    overview: "full",
+    geometries: "geojson",
+    steps: "true",
+    alternatives: "false",
+    continue_straight: "true",
+  });
+  if (data?.code !== "Ok") return null;
+
+  const route = normalizeOSRMRoute(data.routes?.[0], data.waypoints);
+  if (!route) return null;
+  rememberStreetRoute(key, route);
+  return route;
+}
+
+async function getOSRMMatch(points, timestamps = []) {
+  if (points.length < 2 || points.length > OSRM_MAX_COORDINATES) return null;
+  const params = {
+    overview: "full",
+    geometries: "geojson",
+    steps: "false",
+    gaps: "split",
+    radiuses: points.map(() => 50).join(";"),
+  };
+  if (
+    timestamps.length === points.length &&
+    timestamps.every((timestamp, index) =>
+      Number.isFinite(timestamp) && (index === 0 || timestamp > timestamps[index - 1]),
+    )
+  ) {
+    params.timestamps = timestamps.join(";");
+  }
+
+  const data = await requestOSRM("match", points, params);
+  // Never connect separate traces with a fabricated straight segment.
+  if (data?.code !== "Ok" || data.matchings?.length !== 1) return null;
+  const tracepoints = Array.isArray(data.tracepoints) ? data.tracepoints : [];
+  const matchedTracepoints = tracepoints.filter(Boolean);
+  if (matchedTracepoints.length < Math.max(2, Math.ceil(points.length * 0.75))) {
+    return null;
+  }
+  if (matchedTracepoints.some((point) => point.distance > 150)) return null;
+  return normalizeOSRMRoute(data.matchings[0]);
+}
+
+async function getOSRMNearestPoint(coords, maxDistanceMeters = 250) {
+  if (!validCoordinatePair(coords)) return null;
+  const [lat, lng] = coords;
+  const url = new URL(`${OSRM_BASE_URL}/nearest/v1/driving/${lng},${lat}`);
+  url.searchParams.set("number", "1");
+  url.searchParams.set("radiuses", String(maxDistanceMeters));
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), OSRM_TIMEOUT_MS);
+  try {
+    const response = await fetch(url.toString(), { signal: controller.signal });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const waypoint = data?.code === "Ok" ? data.waypoints?.[0] : null;
+    const snapped = waypoint?.location;
+    if (
+      !Array.isArray(snapped) || snapped.length < 2 ||
+      !Number.isFinite(waypoint.distance) ||
+      waypoint.distance > maxDistanceMeters
+    ) return null;
+    return [Number(snapped[1]), Number(snapped[0])];
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function getStreetRouteThroughPoints(points, options = {}) {
@@ -390,40 +604,33 @@ export async function getStreetRouteThroughPoints(points, options = {}) {
         if (segment?.coordinates?.length > 1) {
           return {
             ...segment,
-            coordinates: anchorRouteEndpoints(segment.coordinates, from, to),
           };
         }
       } catch (error) {
         console.warn(`Segment route failed from ${from} to ${to}:`, error.message);
       }
-      return straightLineRoute(from, to);
+      return null;
     }),
   );
 
-  const mergedCoordinates = mergePolylineSegments(
-    segmentRoutes.map((segment) => segment?.coordinates || []),
-  );
-  if (mergedCoordinates.length > 1) {
-    const resolved = {
-      coordinates: anchorRouteEndpoints(
-        mergedCoordinates,
-        validPoints[0],
-        validPoints[validPoints.length - 1],
-      ),
-      duration: segmentRoutes.reduce(
-        (sum, segment) => sum + (segment?.duration || 0),
-        0,
-      ),
-      distance: segmentRoutes.reduce(
-        (sum, segment) => sum + (segment?.distance || 0),
-        0,
-      ),
-      isStraightLine: segmentRoutes.every((segment) => segment?.isStraightLine),
-    };
-    return resolved;
+  if (segmentRoutes.every((segment) => segment?.coordinates?.length > 1)) {
+    const mergedCoordinates = mergePolylineSegments(
+      segmentRoutes.map((segment) => segment.coordinates),
+    );
+    if (mergedCoordinates.length > 1) {
+      return {
+        coordinates: mergedCoordinates,
+        duration: segmentRoutes.reduce((sum, segment) => sum + (segment.duration || 0), 0),
+        distance: segmentRoutes.reduce((sum, segment) => sum + (segment.distance || 0), 0),
+        steps: segmentRoutes.flatMap((segment) => segment.steps || []),
+        provider: "google",
+        trafficAware: true,
+        isStraightLine: false,
+      };
+    }
   }
 
-  return null;
+  return getOSRMStreetRouteThroughPoints(validPoints);
 }
 
 /**
@@ -483,10 +690,10 @@ export async function geocodeAddress(address, options = {}) {
 
   const resolved = result || (Array.isArray(fallbackCoords) && fallbackCoords.length === 2 ? fallbackCoords : null);
 
-  // Snap geocoded coordinate to nearest road for precision
+  // Snap geocoded coordinate to a reachable road for precise pickup/drop-off.
   if (resolved) {
     try {
-      const snapped = await googleSnapPointToRoad(resolved);
+      const snapped = await snapPointToRoad(resolved);
       if (snapped) {
         geocodeCache.set(cacheKey, snapped);
         return snapped;
@@ -512,35 +719,14 @@ function haversineKm(from, to) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Fallback: polyline recta interpolada entre dos puntos (islas, rutas sin asfalto). */
-function straightLineRoute(from, to) {
-  const steps = 10;
-  const coords = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    coords.push([
-      from[0] + (to[0] - from[0]) * t,
-      from[1] + (to[1] - from[1]) * t,
-    ]);
-  }
-  const distKm = haversineKm(from, to);
-  return {
-    coordinates: coords,
-    duration: (distKm / 30) * 3600,
-    distance: distKm * 1000,
-    isStraightLine: true,
-  };
-}
-
 /**
- * Obtiene la ruta real por calles entre dos puntos usando Google Routes API.
- * Si Google Routes falla, usa polyline recta.
+ * Obtiene una ruta real por calles entre dos puntos, con fallback de proveedor.
  * @param {[number, number]} from  - [lat, lng]
  * @param {[number, number]} to    - [lat, lng]
  * @returns {Promise<{ coordinates: [number, number][], duration: number, distance: number, isStraightLine?: boolean }>}
  */
 export async function getStreetRoute(from, to) {
-  if (!from || !to) return null;
+  if (!validCoordinatePair(from) || !validCoordinatePair(to)) return null;
 
   const safeFrom = sanitizeBuenaventuraCoords(from) || from;
   const safeTo = sanitizeBuenaventuraCoords(to, safeFrom) || to;
@@ -551,12 +737,11 @@ export async function getStreetRoute(from, to) {
     if (googleRoute?.coordinates?.length > 1) {
       return googleRoute;
     }
-  } catch (error) {
-    console.warn("Google Routes API failed, using fallback:", error.message);
+  } catch {
+    // Fall through to the road-routing provider.
   }
 
-  // Fallback: línea recta
-  return straightLineRoute(safeFrom, safeTo);
+  return getOSRMStreetRouteThroughPoints([safeFrom, safeTo]);
 }
 
 /**
@@ -571,7 +756,7 @@ export async function getTrackedStreetRoute(points) {
   );
   if (normalized.length < 2) return null;
 
-  const sampled = sampleTrackMatchPoints(normalized, 35);
+  const sampled = sampleTrackMatchPoints(normalized, 12);
   const sampledCoords = sampled.map((p) => p.coords);
 
   // 1. Primary: Google Routes API multi-point route
@@ -579,40 +764,22 @@ export async function getTrackedStreetRoute(points) {
     const googleResult = await googleGetStreetRouteThroughPoints(sampledCoords);
     if (googleResult?.coordinates?.length > 1) return googleResult;
   } catch {
-    // Google Routes failed, try segment-by-segment
+    // Fall through to OSRM map matching.
   }
 
-  // 2. Fallback: Segment-by-segment via getStreetRoute
-  const segmentRoutes = await Promise.all(
-    sampledCoords.slice(1).map(async (to, index) => {
-      const from = sampledCoords[index];
-      try {
-        return await getStreetRoute(from, to);
-      } catch {
-        return straightLineRoute(from, to);
-      }
-    }),
+  const sampledTrace = sampleTrackMatchPoints(normalized, 80);
+  const match = await getOSRMMatch(
+    sampledTrace.map((point) => point.coords),
+    sampledTrace.map((point) =>
+      Number.isFinite(point.timestampMs)
+        ? Math.floor(point.timestampMs / 1000)
+        : null,
+    ),
   );
-
-  const mergedCoordinates = mergePolylineSegments(
-    segmentRoutes.map((segment) => segment?.coordinates || []),
+  if (match?.coordinates?.length > 1) return match;
+  return getOSRMStreetRouteThroughPoints(
+    sampledTrace.map((point) => point.coords),
   );
-  if (mergedCoordinates.length > 1) {
-    return {
-      coordinates: mergedCoordinates,
-      duration: segmentRoutes.reduce(
-        (sum, segment) => sum + (segment?.duration || 0),
-        0,
-      ),
-      distance: segmentRoutes.reduce(
-        (sum, segment) => sum + (segment?.distance || 0),
-        0,
-      ),
-    };
-  }
-
-  // 3. Last resort: straight line
-  return straightLineRoute(sampledCoords[0], sampledCoords[sampledCoords.length - 1]);
 }
 
 /**
@@ -624,7 +791,7 @@ export async function getTrackedStreetRoute(points) {
 export async function getETAMinutes(from, to) {
   const result = await getStreetRoute(from, to);
   if (!result) return null;
-  return Math.ceil(result.duration / 60);
+  return Math.ceil(result.duration / 60000);
 }
 
 /**
@@ -634,7 +801,7 @@ export async function getETAMinutes(from, to) {
  * @returns {Promise<[number, number]>}
  */
 export async function snapPointToRoad(coords) {
-  if (!Array.isArray(coords) || coords.length !== 2) return coords;
+  if (!validCoordinatePair(coords)) return coords;
   const [lat, lng] = coords;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return coords;
 
@@ -644,19 +811,25 @@ export async function snapPointToRoad(coords) {
   const cacheKey = `${keyLat},${keyLng}`;
   if (snapCache.has(cacheKey)) return snapCache.get(cacheKey);
 
+  let snapped = null;
   try {
-    // Usar Google Routes API snap
-    const snapped = await googleSnapPointToRoad(coords);
-    const result = snapped || coords;
-    if (snapCache.size >= SNAP_CACHE_MAX) {
-      const firstKey = snapCache.keys().next().value;
-      snapCache.delete(firstKey);
-    }
-    snapCache.set(cacheKey, result);
-    return result;
+    // Google Roads snapping is optional; this app may not have that API enabled.
+    snapped = await googleSnapPointToRoad(coords);
   } catch {
-    return coords;
+    // Try the configured road service below.
   }
+  const googleSnapIsMeaningful =
+    validCoordinatePair(snapped) && haversineKm(coords, snapped) > 0.001;
+  const result = googleSnapIsMeaningful
+    ? snapped
+    : (await getOSRMNearestPoint(coords)) || coords;
+  if (result === coords) return coords;
+  if (snapCache.size >= SNAP_CACHE_MAX) {
+    const firstKey = snapCache.keys().next().value;
+    snapCache.delete(firstKey);
+  }
+  snapCache.set(cacheKey, result);
+  return result;
 }
 
 /**
@@ -673,12 +846,12 @@ export async function buildRoadPathBetweenPoints(points) {
       Number.isFinite(point[0]) &&
       Number.isFinite(point[1]),
   );
-  if (validPoints.length < 2) return validPoints;
+  if (validPoints.length < 2) return [];
 
   const routed = await getStreetRouteThroughPoints(validPoints, {
     maxDistance: 60000 * Math.max(1, validPoints.length - 1),
   });
-  return routed?.coordinates || validPoints;
+  return routed?.coordinates || [];
 }
 
 function dedupeConsecutivePoints(points) {

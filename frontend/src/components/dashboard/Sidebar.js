@@ -4,10 +4,11 @@ import { icons } from "./icons";
 import { Logo } from "../Logo";
 import useTrackingRoute from "./useTrackingRoute";
 
-export default function Sidebar({ role, onLogout }) {
+export default function Sidebar({ role, onLogout, trackingState: suppliedTrackingState }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { trackingLink, trackingEnabled } = useTrackingRoute(role);
+  const ownTrackingState = useTrackingRoute(role);
+  const { trackingLink, trackingEnabled } = suppliedTrackingState || ownTrackingState;
 
   const navItems = [
     { id: "home", to: "/dashboard", icon: icons.dashboard, label: "Inicio" },
@@ -46,15 +47,15 @@ export default function Sidebar({ role, onLogout }) {
   ];
 
   return (
-    <aside className="hidden md:flex flex-col bg-white border-r border-gray-200 shadow-sm min-h-screen w-60 py-8 px-4 sticky top-0">
+    <aside className="sticky top-0 z-10 flex w-full shrink-0 flex-col border-b border-gray-200 bg-white px-2 py-2 shadow-sm md:min-h-screen md:w-60 md:border-b-0 md:border-r md:px-4 md:py-8">
       <button
         type="button"
         onClick={() => navigate("/dashboard")}
-        className="mb-10 px-2 text-left cursor-pointer bg-transparent border-0 p-0"
+        className="mb-4 hidden cursor-pointer border-0 bg-transparent px-2 p-0 text-left md:mb-10 md:block"
       >
         <Logo variant="default" iconSize={30} />
       </button>
-      <nav className="flex flex-col gap-1 flex-1">
+      <nav aria-label="Navegación principal" className="flex flex-row gap-1 overflow-x-auto pb-1 md:flex-1 md:flex-col md:overflow-visible md:pb-0">
         {navItems
           .filter(
             (item) =>
@@ -73,7 +74,7 @@ export default function Sidebar({ role, onLogout }) {
                 onClick={
                   item.disabled ? (event) => event.preventDefault() : undefined
                 }
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm transition-all duration-150 ${item.disabled ? "opacity-50 cursor-not-allowed text-gray-400" : "hover:bg-blue-50 hover:text-blue-700"} ${isActive ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-600"}`}
+                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 font-medium text-sm transition-colors duration-150 md:gap-3 md:px-4 md:py-3 ${item.disabled ? "opacity-50 cursor-not-allowed text-gray-400" : "hover:bg-blue-50 hover:text-blue-700"} ${isActive ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-600"}`}
               >
                 <Icon
                   size={18}

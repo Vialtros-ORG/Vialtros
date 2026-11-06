@@ -4,9 +4,14 @@ import Sidebar from "../components/dashboard/Sidebar";
 import { icons } from "../components/dashboard/icons";
 import TrackingHero from "../components/tracking/TrackingHero";
 import MapView from "../components/MapView";
+import "./UserRoutePage.css";
 import { getUserAssignedRoute, getDriverTrackings } from "../services/dashboard";
 import { getTrackingsByRoute } from "../services/tracking";
-import { geocodeAddress, getStreetRouteThroughPoints } from "../services/routing";
+import {
+  geocodeAddress,
+  getStreetRouteThroughPoints,
+  sortStopsByRouteOrder,
+} from "../services/routing";
 import { connectTrackingWS } from "../services/ws";
 
 const DEFAULT_SPEED_KMH = 18;
@@ -58,22 +63,48 @@ export default function UserRoutePage({ role, onLogout }) {
 
   // Carga inicial
   useEffect(() => {
+    if (!role) return undefined;
+    if (role !== "user") {
+      setError("Esta vista está disponible únicamente para cuentas de pasajero.");
+      setLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError("");
     Promise.all([getUserAssignedRoute(), getDriverTrackings()])
       .then(([routeData, trackingData]) => {
+        if (cancelled) return;
         setData(routeData);
+        const assignedRouteId = Number(routeData?.route?.id);
         setTrackings(
-          (trackingData || []).map(normalizeTracking).filter(Boolean),
+          (trackingData || [])
+            .filter((tracking) => Number(tracking.route) === assignedRouteId)
+            .map(normalizeTracking)
+            .filter(Boolean),
         );
       })
       .catch((err) => {
+        if (cancelled) return;
+        let message = "No se pudo cargar tu ruta en este momento.";
         if (err?.response?.status === 404) {
-          setError("Todavía no tienes una ruta asignada.");
-          return;
+          message = "Todavía no tienes una ruta asignada.";
+        } else if (err?.response?.status === 409) {
+          message = "Tu cuenta no tiene un perfil de pasajero. Pide al administrador que lo configure.";
+        } else if (err?.response?.status === 403) {
+          message = "El servidor no reconoce esta sesión como pasajero. Cierra sesión y vuelve a entrar; si persiste, pide al administrador que revise tu rol.";
         }
-        setError("No se pudo cargar tu ruta en este momento.");
+        setError(message);
       })
-      .finally(() => setLoading(false));
-  }, []);
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
 
   useEffect(() => {
     wsStatusRef.current = wsStatus;
@@ -84,7 +115,7 @@ export default function UserRoutePage({ role, onLogout }) {
     const route = data?.route;
     if (!route) return;
 
-    if (route.origin_lat && route.origin_lng) {
+    if (route.origin_lat != null && route.origin_lng != null) {
       setOriginCoords([Number(route.origin_lat), Number(route.origin_lng)]);
     } else if (route.origin) {
       geocodeAddress(route.origin).then((coords) => {
@@ -92,7 +123,7 @@ export default function UserRoutePage({ role, onLogout }) {
       }).catch(() => {});
     }
 
-    if (route.destination_lat && route.destination_lng) {
+    if (route.destination_lat != null && route.destination_lng != null) {
       setDestinationCoords([Number(route.destination_lat), Number(route.destination_lng)]);
     } else if (route.destination) {
       geocodeAddress(route.destination).then((coords) => {
@@ -106,7 +137,7 @@ export default function UserRoutePage({ role, onLogout }) {
       const myPassenger = route.passenger_details.find(
         (p) => p.user_detail?.username === currentUsername,
       );
-      if (myPassenger?.pickup_lat && myPassenger?.pickup_lng) {
+      if (myPassenger?.pickup_lat != null && myPassenger?.pickup_lng != null) {
         setMyPickupCoords([Number(myPassenger.pickup_lat), Number(myPassenger.pickup_lng)]);
       }
     }
@@ -114,20 +145,45 @@ export default function UserRoutePage({ role, onLogout }) {
 
   // Construir polilínea de ruta por calles
   useEffect(() => {
-    if (!originCoords || !destinationCoords) return;
-    const stops = data?.route?.intermediate_stops || [];
-    const points = [
-      originCoords,
-      ...stops
-        .filter((s) => s.latitude && s.longitude)
-        .map((s) => [Number(s.latitude), Number(s.longitude)]),
-      destinationCoords,
-    ];
-    getStreetRouteThroughPoints(points)
-      .then((result) => {
-        if (result?.coordinates?.length > 1) setRoutePolyline(result.coordinates);
-      })
-      .catch(() => {});
+    let cancelled = false;
+    setRoutePolyline(null);
+    if (!originCoords || !destinationCoords) return () => { cancelled = true; };
+
+    const resolveStopCoords = async (stop) => {
+      const rawCoords = Array.isArray(stop?.coords)
+        ? stop.coords
+        : [stop?.latitude ?? stop?.lat, stop?.longitude ?? stop?.lng];
+      if (
+        rawCoords.length === 2 &&
+        rawCoords.every((value) => value !== null && value !== undefined && value !== "") &&
+        rawCoords.every((value) => Number.isFinite(Number(value)))
+      ) {
+        return rawCoords.map(Number);
+      }
+      const address = stop?.address || stop?.label || "";
+      return address ? geocodeAddress(address) : null;
+    };
+
+    const buildRoute = async () => {
+      const orderedStops = sortStopsByRouteOrder(data?.route?.intermediate_stops);
+      const stopCoords = await Promise.all(orderedStops.map(resolveStopCoords));
+      // No saltes una parada que no se pudo ubicar: mostrar una ruta parcial sería engañoso.
+      if (stopCoords.some((point) => !Array.isArray(point) || point.length !== 2)) return;
+      const result = await getStreetRouteThroughPoints([
+        originCoords,
+        ...stopCoords,
+        destinationCoords,
+      ]);
+      if (!cancelled) {
+        setRoutePolyline(result?.coordinates?.length > 1 ? result.coordinates : null);
+      }
+    };
+
+    void buildRoute().catch(() => {
+      if (!cancelled) setRoutePolyline(null);
+    });
+
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [originCoords, destinationCoords, data?.route?.intermediate_stops]);
 
@@ -247,9 +303,9 @@ export default function UserRoutePage({ role, onLogout }) {
   const { label: wsLabel, dot: wsDotClass, badge: wsBadgeClass } = WS_UI[wsUiKey] ?? WS_UI.disconnected;
 
   return (
-    <div className="min-h-screen flex bg-gray-50 font-sans">
+    <div className={`user-route-page flex min-h-screen flex-col bg-gray-50 font-sans md:flex-row${route && !loading && !error ? " user-route-map-ready" : ""}`}>
       <Sidebar role={role} onLogout={onLogout} />
-      <main className="flex-1 min-w-0 py-8 px-6 md:px-10 overflow-y-auto">
+      <main className="user-route-main flex-1 min-w-0 py-8 px-6 md:px-10 overflow-y-auto">
 
         <div className="mb-6">
           <TrackingHero
@@ -290,8 +346,8 @@ export default function UserRoutePage({ role, onLogout }) {
           <div className="space-y-5">
 
             {/* Mapa en vivo */}
-            <section className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
+            <section className="user-route-map-shell bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="user-route-map-header px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-sm font-semibold text-gray-900">Seguimiento en vivo</h2>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -309,6 +365,10 @@ export default function UserRoutePage({ role, onLogout }) {
                   </span>
                 )}
               </div>
+              <div className="user-route-map-stage">
+              <Link to="/dashboard" className="user-route-map-back" aria-label="Volver al panel">
+                <span aria-hidden="true">‹</span><span>Volver</span>
+              </Link>
               <MapView
                 trackings={trackings}
                 vehiclePosition={vehiclePosition}
@@ -319,8 +379,22 @@ export default function UserRoutePage({ role, onLogout }) {
                 destinationName={route?.destination}
                 intermediateStops={route?.intermediate_stops || []}
                 userCoords={myPickupCoords}
-                mapHeight="420px"
+                mapHeight="100%"
+                mobileMapSheet={(
+                  <>
+                    <div className="user-map-sheet-status"><span className={`user-map-live-dot ${wsDotClass}`} />{wsLabel}</div>
+                    <h2>{isVehicleNearby ? "El vehículo está cerca" : "Seguimiento de tu ruta"}</h2>
+                    <p>{route?.name || "Ruta asignada"}</p>
+                    <div className="user-map-sheet-metrics">
+                      <div><strong>{etaMinutes ? `${etaMinutes} min` : "—"}</strong><span>hasta tu parada</span></div>
+                      <div><strong>{route?.passenger_count ?? route?.passenger_details?.length ?? 0}</strong><span>estudiantes</span></div>
+                      <div><strong>{pickupStatus === "picked" ? "A bordo" : pickupStatus === "dropped_off" ? "Finalizado" : "Pendiente"}</strong><span>recogida</span></div>
+                    </div>
+                    <p className="user-map-sheet-destination">Destino: {route?.destination || "Sin destino registrado"}</p>
+                  </>
+                )}
               />
+              </div>
             </section>
 
             {/* Grid: info de ruta + compañeros */}
@@ -328,7 +402,7 @@ export default function UserRoutePage({ role, onLogout }) {
               <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
                 <div className="flex items-start justify-between gap-4 mb-6">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-blue-500 font-semibold mb-2">
+                    <p className="text-xs tracking-[0.2em] text-blue-500 font-semibold mb-2">
                       Ruta
                     </p>
                     <h2 className="text-2xl font-bold text-gray-900">
@@ -343,14 +417,14 @@ export default function UserRoutePage({ role, onLogout }) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="rounded-xl bg-gray-50 border border-gray-100 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Origen</p>
+                    <p className="text-xs tracking-wide text-gray-400 mb-2">Origen</p>
                     <div className="flex items-start gap-3 text-gray-800">
                       <span className="text-blue-600">{icons.mapPin({ size: 18, strokeWidth: 2.2 })}</span>
                       <p className="text-sm font-medium">{route?.origin}</p>
                     </div>
                   </div>
                   <div className="rounded-xl bg-gray-50 border border-gray-100 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Destino</p>
+                    <p className="text-xs tracking-wide text-gray-400 mb-2">Destino</p>
                     <div className="flex items-start gap-3 text-gray-800">
                       <span className="text-emerald-600">{icons.navigation({ size: 18, strokeWidth: 2.2 })}</span>
                       <p className="text-sm font-medium">{route?.destination}</p>
@@ -359,7 +433,7 @@ export default function UserRoutePage({ role, onLogout }) {
                 </div>
 
                 <div className="rounded-xl border border-gray-100 bg-white p-4 mb-4">
-                  <p className="text-xs uppercase tracking-wide text-blue-500 font-semibold mb-2">
+                  <p className="text-xs tracking-wide text-blue-500 font-semibold mb-2">
                     Conductor asignado
                   </p>
                   <div className="flex items-center justify-between gap-4">
@@ -372,7 +446,7 @@ export default function UserRoutePage({ role, onLogout }) {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[11px] uppercase tracking-wide text-gray-300">Licencia</p>
+                      <p className="text-[11px] tracking-wide text-gray-300">Licencia</p>
                       <p className="text-sm font-medium text-gray-700">
                         {driver?.license_number || "No disponible"}
                       </p>
@@ -391,7 +465,7 @@ export default function UserRoutePage({ role, onLogout }) {
                 </div>
 
                 <div className="rounded-xl border border-gray-100 bg-white p-4">
-                  <p className="text-xs uppercase tracking-wide text-blue-500 font-semibold mb-2">
+                  <p className="text-xs tracking-wide text-blue-500 font-semibold mb-2">
                     Estado de Recogida
                   </p>
                   <div className="flex items-center gap-3">

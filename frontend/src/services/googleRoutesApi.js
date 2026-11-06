@@ -16,8 +16,21 @@ const FIELD_MASK_BASIC =
 
 // Cache para rutas
 const routeCache = new Map();
-const ROUTE_CACHE_LS_KEY = "google_routes_cache_v1";
+const ROUTE_CACHE_LS_KEY = "google_routes_cache_v2";
 const ROUTE_CACHE_MAX_ENTRIES = 200;
+
+export function parseDurationMilliseconds(value) {
+  if (typeof value === "string") {
+    const seconds = Number.parseFloat(value.replace(/s$/, ""));
+    return Number.isFinite(seconds) ? seconds * 1000 : 0;
+  }
+  if (value && typeof value === "object") {
+    const seconds = Number(value.seconds);
+    const nanos = Number(value.nanos || 0);
+    return Number.isFinite(seconds) ? seconds * 1000 + nanos / 1e6 : 0;
+  }
+  return 0;
+}
 
 // Cargar caché persistente
 function loadPersistentRouteCache() {
@@ -92,9 +105,6 @@ function decodePolyline(encoded, precision = 5) {
  */
 export async function getStreetRoute(origin, destination, options = {}) {
   if (!GOOGLE_ROUTES_API_KEY) {
-    console.error(
-      "Google Routes API key not configured. Set REACT_APP_GOOGLE_ROUTES_API_KEY"
-    );
     return null;
   }
 
@@ -173,7 +183,7 @@ export async function getStreetRoute(origin, destination, options = {}) {
             location: [startLocation.latitude, startLocation.longitude],
             instruction: step.navigationInstruction.instructions,
             distance: step.distanceMeters || 0,
-            duration: step.staticDuration?.seconds * 1000 || 0, // A ms
+            duration: parseDurationMilliseconds(step.staticDuration),
           });
         }
       });
@@ -181,7 +191,7 @@ export async function getStreetRoute(origin, destination, options = {}) {
 
     const result = {
       coordinates,
-      duration: route.duration?.seconds * 1000 || 0, // A ms
+      duration: parseDurationMilliseconds(route.duration),
       distance: route.distanceMeters || 0,
       steps: steps.length > 0 ? steps : null,
       trafficAware: true,
@@ -280,7 +290,7 @@ export async function getStreetRouteThroughPoints(waypoints, options = {}) {
 
     const result = {
       coordinates,
-      duration: route.duration?.seconds * 1000 || 0,
+      duration: parseDurationMilliseconds(route.duration),
       distance: route.distanceMeters || 0,
       trafficAware: true,
     };

@@ -335,8 +335,7 @@ y a quién está dirigida.
      * User → /user/routes
    
    Credenciales de prueba:
-   - Usuario: admin
-   - Contraseña: admin123
+   - No existen credenciales predeterminadas; cada entorno define las suyas.
    
    Usuario objetivo: Todos
 

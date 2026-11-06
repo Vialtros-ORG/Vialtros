@@ -65,7 +65,7 @@ python manage.py migrate
 
 # Crear usuario admin si no existe
 log_info "Asegurando que usuario admin existe..."
-python manage.py create_admin || log_warn "Usuario admin ya existe o no se pudo crear"
+python manage.py create_admin --username admin_vialtros || log_warn "Define VIALTROS_ADMIN_PASSWORD o crea la cuenta manualmente con create_admin"
 
 # Recolectar archivos estáticos
 if [[ "$ENVIRONMENT" == "production" ]]; then
@@ -122,7 +122,5 @@ if [[ "$ENVIRONMENT" == "production" ]]; then
     log_info "2. Verifica que todo funciona:"
     log_info "   curl http://localhost:8000"
     log_info ""
-    log_info "3. Inicia sesión con:"
-    log_info "   Usuario: admin"
-    log_info "   Contraseña: admin123"
+    log_info "3. Inicia sesión con la cuenta administradora que creaste durante la configuración."
 fi

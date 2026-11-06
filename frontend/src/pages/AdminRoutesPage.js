@@ -13,6 +13,7 @@ import {
 } from "../services/admin";
 import { geocodeAddress, snapPointToRoad } from "../services/routing";
 import LocationAutocomplete from "../components/LocationAutocomplete";
+import { getApiErrorMessage } from "../services/apiErrors";
 
 const EMPTY_FORM = {
   name: "",
@@ -183,10 +184,7 @@ export default function AdminRoutesPage({ role, onLogout }) {
       setModal(null);
       load(search);
     } catch (e) {
-      const d = e?.response?.data;
-      setFormError(
-        typeof d === "object" ? JSON.stringify(d) : "Error al guardar",
-      );
+      setFormError(getApiErrorMessage(e, "No se pudo guardar la ruta."));
     } finally {
       setSaving(false);
     }
@@ -218,24 +216,8 @@ export default function AdminRoutesPage({ role, onLogout }) {
     return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
   });
 
-  const getPassengerPreview = (route) => {
-    if (
-      !Array.isArray(route.passenger_details) ||
-      route.passenger_details.length === 0
-    ) {
-      return "Sin pasajeros";
-    }
-
-    const names = route.passenger_details
-      .map((p) => p.user_detail?.username || `#${p.id}`)
-      .filter(Boolean);
-
-    if (names.length <= 2) return names.join(", ");
-    return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
-  };
-
   return (
-    <div className="min-h-screen flex bg-gray-50 font-sans">
+    <div className="flex min-h-screen flex-col bg-gray-50 font-sans md:flex-row">
       <Sidebar role={role} onLogout={onLogout} />
       <main className="flex-1 min-w-0 py-8 px-6 md:px-10">
         <div className="flex items-center justify-between mb-8">
@@ -294,7 +276,7 @@ export default function AdminRoutesPage({ role, onLogout }) {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase tracking-wider">
+                <tr className="border-b border-gray-100 text-xs text-gray-400 tracking-wider">
                   <th
                     onClick={() => toggleSort("name")}
                     className="text-left px-5 py-3 font-medium cursor-pointer select-none hover:text-gray-600"

@@ -54,7 +54,7 @@ Antes de exponer la aplicación, define y valida al menos:
   preserve el upgrade de WebSocket.
 - `CORS_ALLOWED_ORIGINS` restringido a los orígenes frontend esperados.
 - Redis si se ejecutarán varias instancias de Django Channels.
-- Claves de mapas restringidas, cuotas y monitoreo de costos.
+- [Claves de mapas restringidas](mapas.md), cuotas y monitoreo de costos.
 - Backups, logs, monitoreo, rotación de secretos y una estrategia de rollback.
 
 Esta lista identifica decisiones de operación; no afirma que la infraestructura
