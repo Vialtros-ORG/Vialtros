@@ -105,12 +105,20 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Cuando el stack esté disponible, crea una cuenta de administración (no hay
+Cuando el stack esté disponible, crea un superusuario de Django (no hay
 credenciales preconfiguradas):
 
 ```bash
 docker compose exec backend python manage.py createsuperuser
 ```
+
+Este comando conserva `role=user`, aunque activa `is_staff` e `is_superuser`.
+Para administrar Vialtros, entra en [Admin Django](http://localhost:8000/admin/),
+abre la cuenta en **Users** y cambia **Información adicional → Role** a
+**Admin**. Guarda los cambios e inicia sesión en el frontend; si ya tenías una
+sesión abierta, sal y vuelve a entrar para actualizar el rol.
+
+La API administrativa exige `role=admin`; ser superusuario de Django no basta.
 
 Comandos útiles:
 

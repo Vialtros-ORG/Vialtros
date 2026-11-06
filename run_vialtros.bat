@@ -41,6 +41,9 @@ echo Frontend: http://localhost:3000
 echo ============================================
 echo.
 echo No hay una cuenta administradora preconfigurada.
-echo Crea una con: cd backend ^&^& python manage.py createsuperuser
+echo Crea un superusuario Django: cd backend ^&^& python manage.py createsuperuser
+echo Luego abre http://localhost:8000/admin/ y edita esa cuenta en Users.
+echo En Informacion adicional, cambia Role a Admin y guarda.
+echo Inicia sesion de nuevo en Vialtros para actualizar el rol.
 echo.
 pause

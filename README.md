@@ -63,12 +63,24 @@ docker compose up --build -d
 docker compose ps
 ```
 
-El backend aplica las migraciones al arrancar. Crea la primera cuenta
-administradora de forma interactiva:
+El backend aplica las migraciones al arrancar. Crea primero un superusuario
+de Django de forma interactiva:
 
 ```bash
 docker compose exec backend python manage.py createsuperuser
 ```
+
+`createsuperuser` habilita el administrador de Django, pero conserva el rol
+`user` de Vialtros. Para completar la cuenta administradora de la aplicación:
+
+1. Entra en [Admin Django](http://localhost:8000/admin/) con la cuenta creada.
+2. En **Users**, abre esa cuenta y, en **Información adicional**, cambia
+   **Role** a **Admin**. Guarda los cambios.
+3. Inicia sesión en [Vialtros](http://localhost:3000) con esa cuenta. Si ya
+   habías iniciado sesión, sal y vuelve a entrar para actualizar el rol.
+
+El rol `admin` permite acceder a los endpoints administrativos de la API;
+`is_staff` e `is_superuser` por sí solos no conceden ese permiso.
 
 La aplicación **no incluye credenciales de administrador preconfiguradas**.
 

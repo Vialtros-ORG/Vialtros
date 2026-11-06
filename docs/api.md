@@ -24,7 +24,12 @@ Authorization: Bearer <JWT access token>
 | `POST` | `/api/auth/reset-password/` | Público; acepta `token` y `new_password`. |
 
 Las credenciales de administrador no se crean automáticamente. Usa
-`python manage.py createsuperuser` dentro del backend para crear una cuenta.
+`python manage.py createsuperuser` dentro del backend para crear un superusuario
+de Django. Este comando conserva `role=user`: para acceder a la API
+administrativa, cambia el rol de esa cuenta a **Admin** desde el administrador
+de Django. `is_staff` e `is_superuser` no sustituyen a `role=admin` en el permiso
+`IsAdmin`. Sigue el [procedimiento de inicio rápido](../README.md#instalar-y-ejecutar)
+y vuelve a iniciar sesión en el frontend después de cambiar el rol.
 
 ## Rutas REST
 
