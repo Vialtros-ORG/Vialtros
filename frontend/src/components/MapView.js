@@ -53,7 +53,7 @@ const GOOGLE_MAPS_STYLES = [
   { featureType: "administrative", elementType: "labels.text.fill", stylers: [{ color: "#627486" }] },
 ];
 
-function getRouteDirectionIcons(color, gpsMode) {
+export function getRouteDirectionIcons(color, gpsMode) {
   const arrow = window.google?.maps?.SymbolPath?.FORWARD_CLOSED_ARROW;
   if (arrow === undefined) return [];
   return [{
@@ -70,7 +70,7 @@ function getRouteDirectionIcons(color, gpsMode) {
   }];
 }
 
-function RouteStroke({ path, color = ROUTE_COLOR, width = 5, opacity = 1, zIndex = 20, direction = false, gpsMode = false }) {
+export function RouteStroke({ path, color = ROUTE_COLOR, width = 5, opacity = 1, zIndex = 20, direction = false, gpsMode = false }) {
   if (!path) return null;
   return (
     <>
