@@ -214,6 +214,7 @@ export async function searchBuenaventuraPlaces(query) {
           label: String(item.display_name || "")
             .split(",")
             .slice(0, 2)
+            .map((part) => part.trim())
             .join(", "),
           subtitle: "Sugerencia del mapa",
           coords,

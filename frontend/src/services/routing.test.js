@@ -12,8 +12,14 @@ import {
   snapPointToRoad,
   sortStopsByRouteOrder,
   buildRoadPathBetweenPoints,
+  searchBuenaventuraPlaces,
+  geocodeAddress,
+  isWithinBuenaventuraZone,
 } from "./routing";
-import { getStreetRoute as googleGetStreetRoute } from "./googleRoutesApi";
+import {
+  getStreetRoute as googleGetStreetRoute,
+  snapPointToRoad as googleSnapPointToRoad,
+} from "./googleRoutesApi";
 
 test("orders route stops by saved sequence while keeping equal and missing orders stable", () => {
   const stops = [
@@ -46,6 +52,89 @@ test("uses supported order aliases and stable fallback for invalid values", () =
     "empty",
   ]);
   expect(sortStopsByRouteOrder(null)).toEqual([]);
+});
+
+describe("Buenaventura place lookup", () => {
+  beforeEach(() => {
+    global.fetch = jest.fn();
+  });
+
+  test("validates the city bounds and merges local and remote place suggestions", async () => {
+    expect(isWithinBuenaventuraZone([3.89, -77.03])).toBe(true);
+    expect(isWithinBuenaventuraZone([4.5, -77.03])).toBe(false);
+    expect(isWithinBuenaventuraZone([3.89])).toBe(false);
+    expect(await searchBuenaventuraPlaces(" ")).toEqual([]);
+    expect(await searchBuenaventuraPlaces("a")).toEqual([]);
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { display_name: "Centro, Buenaventura, Colombia", lat: "3.87712", lon: "-77.02986" },
+        { display_name: "Biblioteca nueva, Buenaventura", lat: "3.89", lon: "-77.03" },
+        { display_name: "Lugar lejano, Colombia", lat: "4.5", lon: "-77.03" },
+        { display_name: "Lugar inválido, Buenaventura", lat: "NaN", lon: "-77" },
+      ],
+    });
+
+    const suggestions = await searchBuenaventuraPlaces("centro");
+
+    expect(suggestions.map(({ label }) => label)).toEqual([
+      "Centro, Buenaventura",
+      "Biblioteca nueva, Buenaventura",
+    ]);
+    expect(new URL(global.fetch.mock.calls[0][0]).searchParams.get("q")).toBe(
+      "centro, Buenaventura, Colombia",
+    );
+  });
+
+  test("returns local suggestions if Nominatim is unavailable", async () => {
+    global.fetch.mockRejectedValue(new Error("Nominatim unavailable"));
+
+    const suggestions = await searchBuenaventuraPlaces("Bellavista");
+
+    expect(suggestions[0]).toEqual(expect.objectContaining({
+      label: "Bellavista",
+      source: "local",
+    }));
+  });
+
+  test("geocodes known places, uses a fallback search, and caches successful results", async () => {
+    expect(await geocodeAddress("Terminal de transporte")).toEqual([3.89015, -77.07366]);
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    global.fetch
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ lat: "3.89", lon: "-77.03" }],
+      });
+    googleSnapPointToRoad.mockResolvedValueOnce([3.8901, -77.03]);
+    const location = await geocodeAddress("Biblioteca del puerto", {
+      fallbackCoords: [3.89, -77.03],
+    });
+
+    expect(location).toEqual([3.8901, -77.03]);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(new URL(global.fetch.mock.calls[0][0]).searchParams.has("viewbox")).toBe(true);
+    expect(new URL(global.fetch.mock.calls[1][0]).searchParams.has("viewbox")).toBe(false);
+    expect(await geocodeAddress("Biblioteca del puerto", {
+      fallbackCoords: [3.89, -77.03],
+    })).toEqual(location);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  test("returns fallback coordinates after both geocoding searches fail", async () => {
+    global.fetch.mockResolvedValue({ ok: false });
+    googleSnapPointToRoad.mockResolvedValueOnce([3.9001, -77.02]);
+
+    const location = await geocodeAddress("Muelle de prueba", {
+      fallbackCoords: [3.9, -77.02],
+    });
+
+    expect(location).toEqual([3.9001, -77.02]);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
 });
 
 const routeGeometry = {
