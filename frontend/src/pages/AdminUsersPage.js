@@ -8,8 +8,22 @@ import {
   updateUser,
   deleteUser,
 } from "../services/admin";
+import {
+  isValidEmail,
+  isValidPersonName,
+  isValidUsername,
+  normalizeEmail,
+  normalizePersonName,
+  normalizeUsername,
+} from "../services/validation";
+import { getApiErrorMessage } from "../services/apiErrors";
 
 const ALL_ROLES = ["admin", "driver", "user"];
+const ROLE_LABELS = {
+  admin: "Administrador",
+  driver: "Conductor",
+  user: "Pasajero",
+};
 const EMPTY_FORM = {
   username: "",
   first_name: "",
@@ -22,7 +36,7 @@ const EMPTY_FORM = {
 
 function Badge({ role, isOnlyAdmin }) {
   const map = {
-    admin: "bg-violet-100 text-violet-700",
+    admin: "bg-blue-100 text-blue-700",
     driver: "bg-blue-100 text-blue-700",
     user: "bg-gray-100 text-gray-600",
   };
@@ -31,11 +45,11 @@ function Badge({ role, isOnlyAdmin }) {
       <span
         className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${map[role] || map.user}`}
       >
-        {role}
+        {ROLE_LABELS[role] || ROLE_LABELS.user}
       </span>
       {isOnlyAdmin && (
         <span title="Único administrador del sistema" className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-[10px] font-semibold">
-          ÚNICO
+          Único
         </span>
       )}
     </div>
@@ -129,18 +143,41 @@ export default function AdminUsersPage({ role, onLogout }) {
   };
 
   const handleSave = async () => {
-    if (!form.username.trim()) {
-      setFormError("El nombre de usuario es obligatorio");
+    const username = normalizeUsername(form.username);
+    const firstName = normalizePersonName(form.first_name);
+    const lastName = normalizePersonName(form.last_name);
+    const email = normalizeEmail(form.email);
+
+    if (!username) {
+      setFormError("El nombre de usuario es obligatorio.");
       return;
     }
-    if (modal === "create" && !form.password) {
-      setFormError("La contraseña es obligatoria");
+    if (!isValidUsername(username)) {
+      setFormError("El usuario debe tener de 3 a 30 letras sin tilde, números, puntos, guiones o guiones bajos.");
+      return;
+    }
+    if (!isValidPersonName(firstName) || !isValidPersonName(lastName)) {
+      setFormError("El nombre y el apellido deben tener hasta 80 letras; se permiten espacios, guiones y apóstrofos.");
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setFormError("Ingresa un correo válido de hasta 254 caracteres.");
+      return;
+    }
+    if ((modal === "create" || form.password) && form.password.length < 12) {
+      setFormError("La contraseña debe tener al menos 12 caracteres.");
       return;
     }
     setSaving(true);
     setFormError("");
     try {
-      const payload = { ...form };
+      const payload = {
+        ...form,
+        username,
+        first_name: firstName,
+        last_name: lastName,
+        email,
+      };
       if (!payload.password) delete payload.password;
       if (modal === "create") {
         await createUser(payload);
@@ -150,12 +187,7 @@ export default function AdminUsersPage({ role, onLogout }) {
       setModal(null);
       load(search, dateFrom, dateTo);
     } catch (e) {
-      const detail = e?.response?.data;
-      setFormError(
-        typeof detail === "object"
-          ? JSON.stringify(detail)
-          : "Error al guardar",
-      );
+      setFormError(getApiErrorMessage(e, "No se pudo guardar el usuario."));
     } finally {
       setSaving(false);
     }
@@ -215,7 +247,7 @@ export default function AdminUsersPage({ role, onLogout }) {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50 font-sans">
+    <div className="flex min-h-screen flex-col bg-gray-50 font-sans md:flex-row">
       <Sidebar role={role} onLogout={onLogout} />
       <main className="flex-1 min-w-0 py-8 px-6 md:px-10">
         {/* Header */}
@@ -327,7 +359,7 @@ export default function AdminUsersPage({ role, onLogout }) {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase tracking-wider">
+                <tr className="border-b border-gray-100 text-xs text-gray-400 tracking-wider">
                   <th className="px-5 py-3 w-10">
                     <input
                       type="checkbox"
@@ -490,6 +522,10 @@ export default function AdminUsersPage({ role, onLogout }) {
             <label className="text-sm font-medium text-gray-600">
               Usuario *
               <input
+                autoCapitalize="none"
+                autoComplete="username"
+                maxLength={30}
+                spellCheck={false}
                 className="mt-1 block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={form.username}
                 onChange={(e) =>
@@ -501,6 +537,8 @@ export default function AdminUsersPage({ role, onLogout }) {
               <label className="text-sm font-medium text-gray-600">
                 Nombre
                 <input
+                  autoComplete="given-name"
+                  maxLength={80}
                   className="mt-1 block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   value={form.first_name}
                   onChange={(e) =>
@@ -512,6 +550,8 @@ export default function AdminUsersPage({ role, onLogout }) {
               <label className="text-sm font-medium text-gray-600">
                 Apellido
                 <input
+                  autoComplete="family-name"
+                  maxLength={80}
                   className="mt-1 block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   value={form.last_name}
                   onChange={(e) =>
@@ -525,6 +565,8 @@ export default function AdminUsersPage({ role, onLogout }) {
               Email
               <input
                 type="email"
+                autoComplete="email"
+                maxLength={254}
                 className="mt-1 block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={form.email}
                 onChange={(e) =>
@@ -544,7 +586,7 @@ export default function AdminUsersPage({ role, onLogout }) {
               >
                 {getAvailableRoles().map((r) => (
                   <option key={r} value={r}>
-                    {r}
+                    {ROLE_LABELS[r] || r}
                   </option>
                 ))}
               </select>
@@ -565,6 +607,8 @@ export default function AdminUsersPage({ role, onLogout }) {
               </span>
               <input
                 type={showPassword ? "text" : "password"}
+                autoComplete={modal === "create" ? "new-password" : "current-password"}
+                minLength={12}
                 className="block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={form.password}
                 onChange={(e) =>

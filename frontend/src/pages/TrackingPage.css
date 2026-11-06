@@ -12,7 +12,7 @@
   --vt-surface-soft:  #f8fbff;
   --vt-border:        #e2e8f0;
   --sidebar-w:        280px;
-  --sidebar-font:     ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --sidebar-font:     var(--vialtros-font-sans);
 }
 
 /* ── Layout raíz ─────────────────────────────────────────── */
@@ -21,7 +21,7 @@
   flex-direction: column;
   height: calc(100vh - 56px);
   overflow: hidden;
-  background: #f0f6ff;
+  background: var(--vialtros-canvas);
   font-family: var(--sidebar-font);
   font-size: 14px;
   color: var(--vt-ink);
@@ -386,7 +386,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.06em;
 }
 /* ── Admin KPI bar (compacto + colapsable) ───────────────── */
@@ -426,7 +426,7 @@
 .admin-kpi-pill-label {
   font-size: 9px;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.08em;
   color: var(--vt-muted);
 }
@@ -542,7 +542,7 @@
 .admin-route-state {
   font-size: 9px;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.06em;
   border-radius: 99px;
   padding: 2px 7px;
@@ -732,7 +732,7 @@
 .stop-label {
   font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.07em;
   color: var(--vt-muted);
   margin: 0;
@@ -860,7 +860,7 @@
 .gps-notif-label {
   font-size: 9px;
   font-weight: 600;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.09em;
   color: var(--vt-muted);
 }
@@ -998,6 +998,8 @@
   border-radius: 14px;
 }
 
+.mobile-sheet-handle { display: none; }
+
 /* Transición "live" al recibir primeros datos */
 .map-live-transition .tracking-map-container {
   animation: map-live-flash 0.5s ease-out;
@@ -1020,36 +1022,99 @@
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
-  :root { --sidebar-w: 100%; }
+  .tracking-layout {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    background: #eaf2fb;
+  }
 
   .tracking-dashboard {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    height: auto;
-    overflow: visible;
-    padding: 10px;
-    gap: 10px;
-  }
-
-  .tracking-analytics-panel {
-    max-height: 45vh;
-    border-radius: 12px;
-  }
-
-  .map-container-wrapper {
-    height: 55vh;
+    position: absolute;
+    inset: 0;
+    display: block;
+    height: 100%;
+    overflow: hidden;
     padding: 0;
   }
 
-  .map-frame {
-    border-radius: 12px;
+  .tracking-dashboard > .map-container-wrapper {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
   }
 
-  .tracking-layout {
-    height: auto;
-    min-height: 100vh;
-    overflow: visible;
+  .map-frame,
+  .map-container-wrapper .tracking-map-container {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
+
+  .tracking-analytics-panel {
+    position: absolute;
+    z-index: 30;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: min(48dvh, 430px);
+    padding: 0 0 env(safe-area-inset-bottom);
+    overflow: auto;
+    border: 0;
+    border-radius: 24px 24px 0 0;
+    box-shadow: 0 -8px 32px rgba(15, 23, 42, .14);
+    transition: max-height .24s ease;
+  }
+
+  .tracking-analytics-panel.mobile-sheet-collapsed {
+    max-height: calc(74px + env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+
+  .sidebar-top {
+    position: sticky;
+    top: 0;
+    min-height: 68px;
+    padding-top: 14px;
+    background: rgba(255,255,255,.97);
+    backdrop-filter: blur(14px);
+  }
+
+  .mobile-sheet-handle {
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    display: grid;
+    width: 52px;
+    height: 10px;
+    padding: 0;
+    transform: translateX(-50%);
+    place-items: center;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .mobile-sheet-handle span,
+  .vt-map-sheet-handle span {
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: #d7dce3;
+  }
+
+  .tracking-analytics-panel.mobile-sheet-collapsed > :not(.sidebar-top) {
+    visibility: hidden;
+  }
+
+  .alerts-popover { width: min(100%, 360px); }
 
   .alerts-popover {
     width: 100%;
@@ -1077,7 +1142,7 @@
 .driver-next-route-title {
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.6px;
   color: #4ade80;
 }
@@ -1155,7 +1220,7 @@
 .vt-route-eyebrow {
   font-size: 9px;
   font-weight: 600;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.12em;
   color: #94a3b8;
   margin-bottom: 3px;
@@ -1183,6 +1248,7 @@
 .vt-route-state-badge.verified  { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
 .vt-route-state-badge.alternate { background: #fefce8; color: #854d0e; border-color: #fde68a; }
 .vt-route-state-badge.pending   { background: #f8fafc; color: var(--vt-muted); border-color: var(--vt-border); }
+.vt-route-state-badge.unavailable { background: #fff1f2; color: #be123c; border-color: #fecdd3; }
 
 /* Stats */
 .vt-route-stats {
@@ -1232,7 +1298,7 @@
 .vt-tl-label {
   font-size: 9px;
   font-weight: 500;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.08em;
   color: var(--vt-muted);
   margin: 0 0 1px;
@@ -1521,7 +1587,7 @@
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: none;
   color: #94a3b8;
   margin: 10px 0 5px;
 }
@@ -1546,7 +1612,7 @@
 .drv-stat-title {
   font-size: 9px;
   font-weight: 600;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.09em;
   color: #94a3b8;
 }
@@ -1710,7 +1776,7 @@
 .drv-stopped-stat-label {
   font-size: 9px;
   font-weight: 500;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.06em;
   color: var(--vt-muted);
 }
@@ -1935,7 +2001,7 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--rfs-muted);
-  text-transform: uppercase;
+  text-transform: none;
   margin-bottom: 10px;
 }
 

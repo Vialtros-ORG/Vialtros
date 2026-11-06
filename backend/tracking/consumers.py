@@ -1,15 +1,30 @@
 import json
 import logging
 
+from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
+from users.models import Route
 
 logger = logging.getLogger(__name__)
 
 
+@database_sync_to_async
+def user_can_access_route(user, route_id):
+	if not user or not getattr(user, 'is_authenticated', False):
+		return False
+	if user.role == 'admin':
+		return Route.objects.filter(pk=route_id).exists()
+	if user.role == 'driver':
+		return Route.objects.filter(pk=route_id, driver__user=user).exists()
+	if user.role == 'user':
+		return Route.objects.filter(pk=route_id, passengers__user=user).exists()
+	return False
+
+
 class TrackingConsumer(AsyncWebsocketConsumer):
     """
-    Consumer de tracking en tiempo real.
-    Cualquier cliente puede suscribirse a una ruta; no requiere autenticacion.
+    Consumer de solo lectura para tracking en tiempo real.
+    Solo los usuarios asignados a la ruta pueden recibir su ubicación.
     """
 
     async def connect(self):
@@ -20,6 +35,15 @@ class TrackingConsumer(AsyncWebsocketConsumer):
             "[TrackingConsumer] connect — ruta=%s cliente=%s:%s",
             self.route_id, client[0], client[1],
         )
+
+        user = self.scope.get('user')
+        if not user or not getattr(user, 'is_authenticated', False):
+            await self.close(code=4401)
+            return
+
+        if not await user_can_access_route(user, self.route_id):
+            await self.close(code=4403)
+            return
 
         if self.channel_layer is None:
             logger.error(
@@ -51,20 +75,10 @@ class TrackingConsumer(AsyncWebsocketConsumer):
             except Exception:
                 logger.exception("[TrackingConsumer] error en disconnect()")
 
-    async def receive(self, text_data):
-        try:
-            data = json.loads(text_data)
-        except json.JSONDecodeError:
-            logger.warning("[TrackingConsumer] mensaje no es JSON valido, ignorado")
-            return
-
-        try:
-            await self.channel_layer.group_send(
-                self.group_name,
-                {"type": "tracking_update", "data": data},
-            )
-        except Exception:
-            logger.exception("[TrackingConsumer] error en receive()")
+    async def receive(self, text_data=None, bytes_data=None):
+        # Los clientes solo escuchan. La ubicación se publica por el endpoint
+        # autenticado /api/tracking/ingest/ para validar rol y asignación.
+        return
 
     async def tracking_update(self, event):
         try:

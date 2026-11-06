@@ -9,6 +9,8 @@ import {
   deleteDriver,
 } from "../services/admin";
 import { getUsers } from "../services/admin";
+import { isValidLicense } from "../services/validation";
+import { getApiErrorMessage } from "../services/apiErrors";
 
 const EMPTY_FORM = { user: "", license_number: "" };
 
@@ -66,22 +68,20 @@ export default function AdminDriversPage({ role, onLogout }) {
       setFormError("Selecciona un usuario");
       return;
     }
-    if (!form.license_number.trim()) {
-      setFormError("La licencia es obligatoria");
+    if (!isValidLicense(form.license_number)) {
+      setFormError("La licencia debe tener entre 4 y 25 letras, números, puntos o guiones.");
       return;
     }
     setSaving(true);
     setFormError("");
     try {
-      if (modal === "create") await createDriver(form);
-      else await updateDriver(modal.id, form);
+      const payload = { ...form, license_number: form.license_number.trim().toUpperCase() };
+      if (modal === "create") await createDriver(payload);
+      else await updateDriver(modal.id, payload);
       setModal(null);
       load(search);
     } catch (e) {
-      const d = e?.response?.data;
-      setFormError(
-        typeof d === "object" ? JSON.stringify(d) : "Error al guardar",
-      );
+      setFormError(getApiErrorMessage(e, "No se pudo guardar el conductor."));
     } finally {
       setSaving(false);
     }
@@ -121,7 +121,7 @@ export default function AdminDriversPage({ role, onLogout }) {
   );
 
   return (
-    <div className="min-h-screen flex bg-gray-50 font-sans">
+    <div className="flex min-h-screen flex-col bg-gray-50 font-sans md:flex-row">
       <Sidebar role={role} onLogout={onLogout} />
       <main className="flex-1 min-w-0 py-8 px-6 md:px-10">
         <div className="flex items-center justify-between mb-8">
@@ -180,7 +180,7 @@ export default function AdminDriversPage({ role, onLogout }) {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase tracking-wider">
+                <tr className="border-b border-gray-100 text-xs text-gray-400 tracking-wider">
                   <th
                     onClick={() => toggleSort("username")}
                     className="text-left px-5 py-3 font-medium cursor-pointer select-none hover:text-gray-600"
@@ -307,6 +307,8 @@ export default function AdminDriversPage({ role, onLogout }) {
             <label className="text-xs font-medium text-gray-600">
               N° de licencia *
               <input
+                maxLength={25}
+                autoCapitalize="characters"
                 className="mt-1 block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={form.license_number}
                 onChange={(e) =>

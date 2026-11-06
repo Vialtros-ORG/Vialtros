@@ -82,7 +82,7 @@ export default function ActivityPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+            <span className="text-xs font-bold tracking-[0.2em] text-blue-600">
               Vista administrativa
             </span>
             <h1 className="mt-2 text-3xl font-bold text-slate-900">

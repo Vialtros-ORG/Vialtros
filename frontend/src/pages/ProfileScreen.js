@@ -1,22 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import SectionCard from "../components/dashboard/SectionCard";
 import { getCurrentUser, updateCurrentUser, getUserCache, saveUserCache } from "../services/auth";
-
-const DEFAULT_AVATAR =
-  "https://ui-avatars.com/api/?name=Usuario&background=2563eb&color=fff&size=128&rounded=true";
-
-function normalizeName(value) {
-  if (!value) return "";
-  return value.trim().replace(/\s+/g, " ")
-    .split(" ")
-    .map((word) => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : "")
-    .filter(Boolean)
-    .join(" ");
-}
+import {
+  isValidEmail,
+  isValidPersonName,
+  isValidPhone,
+  normalizeEmail,
+  normalizePersonName,
+  normalizePhone,
+} from "../services/validation";
+import { getApiErrorMessage } from "../services/apiErrors";
 
 export default function ProfileScreen() {
-  const [avatar, setAvatar] = useState(DEFAULT_AVATAR);
+  const [avatar, setAvatar] = useState("");
   const [photoSavedMsg, setPhotoSavedMsg] = useState("");
+  const [photoError, setPhotoError] = useState("");
   const [user, setUser] = useState({
     first_name: "",
     last_name: "",
@@ -36,6 +35,7 @@ export default function ProfileScreen() {
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
   const fileInputRef = useRef();
+  const navigate = useNavigate();
 
   const getUserIdKey = (u, token) => {
     if (u && u.id) return String(u.id);
@@ -65,7 +65,7 @@ export default function ProfileScreen() {
     setEditData(userData);
     const userIdKey = getUserIdKey(u, token);
     const saved = localStorage.getItem(`profileImage_${userIdKey}`);
-    setAvatar(saved || DEFAULT_AVATAR);
+    setAvatar(saved || "");
   }, []);
 
   useEffect(() => {
@@ -86,44 +86,84 @@ export default function ProfileScreen() {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setPhotoError("");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setPhotoError("Selecciona una imagen PNG, JPG o WebP.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoError("La imagen no puede superar los 2 MB.");
+      e.target.value = "";
+      return;
+    }
     const token = localStorage.getItem("access");
     getCurrentUser().then((u) => {
+      if (!u) throw new Error("No se pudo identificar la cuenta.");
       const userIdKey = getUserIdKey(u, token);
       const reader = new FileReader();
       reader.onload = (ev) => {
-        setAvatar(ev.target.result);
-        localStorage.setItem(`profileImage_${userIdKey}`, ev.target.result);
-        setPhotoSavedMsg("Foto guardada correctamente");
-        setTimeout(() => setPhotoSavedMsg(""), 2000);
+        try {
+          localStorage.setItem(`profileImage_${userIdKey}`, ev.target.result);
+          setAvatar(ev.target.result);
+          setPhotoSavedMsg("Foto guardada correctamente.");
+          setTimeout(() => setPhotoSavedMsg(""), 2000);
+        } catch {
+          setPhotoError("No se pudo guardar la imagen. Prueba con un archivo más pequeño.");
+        }
       };
+      reader.onerror = () => setPhotoError("No se pudo leer la imagen seleccionada.");
       reader.readAsDataURL(file);
-    });
+    }).catch(() => setPhotoError("No se pudo guardar la foto. Inténtalo de nuevo."));
   };
 
   const handleInputChange = (field) => (e) =>
     setEditData((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleSave = async () => {
+    const firstName = normalizePersonName(editData.first_name);
+    const lastName = normalizePersonName(editData.last_name);
+    const email = normalizeEmail(editData.email);
+    const phone = normalizePhone(editData.phone_number);
+
+    if (!isValidPersonName(firstName) || !isValidPersonName(lastName)) {
+      setSaveError("El nombre y el apellido solo pueden contener letras, espacios, guiones y apóstrofos.");
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setSaveError("Ingresa un correo válido de hasta 254 caracteres.");
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      setSaveError("Ingresa un teléfono internacional válido, por ejemplo +57 300 123 4567.");
+      return;
+    }
+
     setSaving(true);
     setSaveError("");
     setSaveSuccess(false);
     try {
-      const normalizedFirst = normalizeName(editData.first_name || "");
-      const normalizedLast = normalizeName(editData.last_name || "");
       await updateCurrentUser({
-        first_name: normalizedFirst,
-        last_name: normalizedLast,
-        email: editData.email || "",
-        phone_number: editData.phone_number || "",
+        first_name: firstName || "",
+        last_name: lastName,
+        email,
+        phone_number: phone,
       });
-      setEditData((ed) => ({ ...ed, first_name: normalizedFirst, last_name: normalizedLast }));
-      setUser({ ...editData });
-      saveUserCache({ ...editData });
+      const updatedUser = {
+        ...editData,
+        first_name: firstName || "",
+        last_name: lastName,
+        email,
+        phone_number: phone,
+      };
+      setEditData(updatedUser);
+      setUser(updatedUser);
+      saveUserCache(updatedUser);
       setEditMode(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch {
-      setSaveError("No se pudieron guardar los cambios. Inténtalo de nuevo.");
+    } catch (error) {
+      setSaveError(getApiErrorMessage(error, "No se pudieron guardar los cambios."));
     } finally {
       setSaving(false);
     }
@@ -142,11 +182,13 @@ export default function ProfileScreen() {
 
   return (
     <div className="w-full flex justify-center px-4 py-10">
-      <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-14 flex flex-col items-center w-full min-w-[350px] max-w-[600px] relative">
+      <div className="relative flex w-full min-w-0 max-w-[600px] flex-col items-center rounded-2xl border border-slate-200 bg-white p-6 shadow-lg sm:p-8 md:p-12">
         <button
+          type="button"
           className="absolute top-6 right-6 text-3xl text-gray-400 hover:text-gray-700 focus:outline-none"
           title="Cerrar"
-          onClick={() => window.history.back()}
+          aria-label="Volver al panel"
+          onClick={() => navigate("/dashboard")}
         >
           ×
         </button>
@@ -155,12 +197,28 @@ export default function ProfileScreen() {
 
         {/* Avatar */}
         <div className="relative mb-10 flex flex-col items-center">
-          <img
-            src={avatar}
-            alt="Avatar"
-            className="w-[120px] h-[120px] md:w-[150px] md:h-[150px] rounded-full object-cover border-4 border-blue-200 shadow-lg"
-          />
+          {avatar ? (
+            <img
+              src={avatar}
+              alt={`Foto de perfil de ${displayName}`}
+              className="h-28 w-28 rounded-full border-4 border-blue-100 object-cover shadow-sm md:h-36 md:w-36"
+            />
+          ) : (
+            <div
+              aria-label={`Iniciales de ${displayName}`}
+              className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-blue-100 bg-blue-50 text-3xl font-semibold text-blue-700 md:h-36 md:w-36"
+            >
+              {[user.first_name, user.last_name]
+                .filter(Boolean)
+                .map((part) => part[0])
+                .join("")
+                .slice(0, 2)
+                .toLocaleUpperCase("es-CO") || "V"}
+            </div>
+          )}
           <button
+            type="button"
+            aria-label="Cambiar foto de perfil"
             onClick={() => fileInputRef.current.click()}
             className="absolute bottom-2 right-2 md:bottom-4 md:right-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-md focus:outline-none"
             title="Cambiar foto"
@@ -173,25 +231,34 @@ export default function ProfileScreen() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp"
+            aria-label="Seleccionar imagen de perfil"
             className="hidden"
             onChange={handleImageChange}
           />
           {photoSavedMsg && (
             <span className="mt-3 text-green-600 text-sm font-semibold">{photoSavedMsg}</span>
           )}
+          {photoError && <span role="alert" className="mt-3 text-sm text-red-600">{photoError}</span>}
         </div>
 
         {/* Campos */}
         <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mb-10">
           <SectionCard
             label="Nombre"
-            value={editMode ? `${editData.first_name} ${editData.last_name}`.trim() : displayName}
+            value={editMode ? editData.first_name : user.first_name || user.username}
             editable={editMode}
-            onChange={(e) => {
-              const [first, ...rest] = e.target.value.split(" ");
-              setEditData((ed) => ({ ...ed, first_name: first || "", last_name: rest.join(" ") }));
-            }}
+            onChange={handleInputChange("first_name")}
+            autoComplete="given-name"
+            maxLength={80}
+          />
+          <SectionCard
+            label="Apellido"
+            value={editMode ? editData.last_name : user.last_name || "Sin especificar"}
+            editable={editMode}
+            onChange={handleInputChange("last_name")}
+            autoComplete="family-name"
+            maxLength={80}
           />
           <SectionCard
             label="Correo"
@@ -199,6 +266,8 @@ export default function ProfileScreen() {
             editable={editMode}
             onChange={handleInputChange("email")}
             type="email"
+            autoComplete="email"
+            maxLength={254}
           />
           <SectionCard
             label="Teléfono"
@@ -206,6 +275,9 @@ export default function ProfileScreen() {
             editable={editMode}
             onChange={handleInputChange("phone_number")}
             type="tel"
+            autoComplete="tel"
+            inputMode="tel"
+            maxLength={24}
           />
         </div>
 

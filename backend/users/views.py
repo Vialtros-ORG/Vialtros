@@ -5,6 +5,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.filters import SearchFilter
@@ -536,11 +537,17 @@ class UserViewSet(viewsets.ModelViewSet):
             routes_qs = Route.objects.filter(passengers=passenger)
             route = routes_qs.first()
             classmates_count = route.passengers.count() if route else 0
+            tracking_count = (
+                Tracking.objects.filter(route__in=routes_qs)
+                .filter(Q(passenger=passenger) | Q(passenger__isnull=True))
+                .exclude(latitude=0.0, longitude=0.0)
+                .count()
+            )
 
             return Response({
                 'routes': routes_qs.count(),
                 'users': classmates_count,
-                'trackings': Tracking.objects.filter(passenger=passenger).count(),
+                'trackings': tracking_count,
             })
 
         return Response({'routes': 0, 'users': 0, 'trackings': 0})
@@ -603,7 +610,10 @@ class UserViewSet(viewsets.ModelViewSet):
         try:
             passenger = Passenger.objects.get(user=request.user)
         except Passenger.DoesNotExist:
-            return Response({'detail': 'No es pasajero'}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {'detail': 'La cuenta no tiene un perfil de pasajero configurado.'},
+                status=status.HTTP_409_CONFLICT,
+            )
         route = (
             Route.objects
             .filter(passengers=passenger)
@@ -794,7 +804,12 @@ class TrackingViewSet(viewsets.ModelViewSet):
                 passenger = Passenger.objects.get(user=user)
             except Passenger.DoesNotExist:
                 return Tracking.objects.none()
-            return base_qs.filter(passenger=passenger)
+            assigned_routes = Route.objects.filter(passengers=passenger)
+            return (
+                base_qs.filter(route__in=assigned_routes)
+                .filter(Q(passenger=passenger) | Q(passenger__isnull=True))
+                .exclude(latitude=0.0, longitude=0.0)
+            )
         return Tracking.objects.none()
 
     def list(self, request):
@@ -996,7 +1011,7 @@ class TrackingViewSet(viewsets.ModelViewSet):
              'Tu transporte esta cerca de tu parada. Atento a la llegada.'),
         ]
         for passenger in passengers:
-            if not passenger.pickup_lat or not passenger.pickup_lng:
+            if passenger.pickup_lat is None or passenger.pickup_lng is None:
                 continue
             dist = haversine_km(bus_lat, bus_lng, passenger.pickup_lat, passenger.pickup_lng)
             parent_user = passenger.user
@@ -1026,7 +1041,7 @@ class TrackingViewSet(viewsets.ModelViewSet):
                     break  # solo notificar el umbral mas cercano alcanzado
 
     def _check_proximity_to_destination(self, bus_lat, bus_lng, route, passengers, speed_kmh=0):
-        if not route.destination_lat or not route.destination_lng:
+        if route.destination_lat is None or route.destination_lng is None:
             return
         dist = haversine_km(bus_lat, bus_lng, route.destination_lat, route.destination_lng)
         if dist > self.APPROACHING_DEST_KM:
@@ -1052,7 +1067,7 @@ class TrackingViewSet(viewsets.ModelViewSet):
             (0.30, '300m', 'Proxima parada de estudiante'),
         ]
         for passenger in passengers:
-            if not passenger.pickup_lat or not passenger.pickup_lng:
+            if passenger.pickup_lat is None or passenger.pickup_lng is None:
                 continue
             dist = haversine_km(bus_lat, bus_lng, passenger.pickup_lat, passenger.pickup_lng)
             student_name = passenger.user.get_full_name() or passenger.user.username
@@ -1084,7 +1099,7 @@ class TrackingViewSet(viewsets.ModelViewSet):
                         )
                     break  # solo notificar el umbral mas cercano alcanzado
 
-        if route.destination_lat and route.destination_lng:
+        if route.destination_lat is not None and route.destination_lng is not None:
             dist_dest = haversine_km(bus_lat, bus_lng, route.destination_lat, route.destination_lng)
             if dist_dest <= self.DRIVER_NEAR_DEST_KM:
                 if _should_notify(driver_user, NotificationType.DRIVER_NEAR_DESTINATION, route, cooldown_minutes=10):

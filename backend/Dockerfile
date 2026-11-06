@@ -10,7 +10,7 @@ COPY . .
 
 RUN sed -i 's/\r$//' /app/entrypoint.sh \
     && chmod +x /app/entrypoint.sh \
-    && python manage.py collectstatic --noinput
+    && DJANGO_DEBUG=True DJANGO_SECRET_KEY=build-only-not-used-at-runtime-change-before-deploy-000000000000000000000000000000000000000000000000 python manage.py collectstatic --noinput
 
 EXPOSE 8000
 

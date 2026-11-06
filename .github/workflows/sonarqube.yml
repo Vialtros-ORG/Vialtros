@@ -28,6 +28,36 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Node.js for frontend coverage
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Generate frontend coverage report
+        run: |
+          npm ci --ignore-scripts
+          npm test -- --watchAll=false --passWithNoTests --coverage
+        working-directory: frontend
+        env:
+          CI: true
+
+      - name: Set up Python for backend coverage
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate backend coverage report
+        run: |
+          python -m pip install --only-binary :all: -r requirements-ci.txt
+          coverage run --source=core,tracking,users manage.py test
+          coverage xml -o coverage.xml
+        working-directory: backend
+        env:
+          DJANGO_DEBUG: 'True'
+          DJANGO_SECRET_KEY: ci-only-secret-key
+
       - name: Run SonarQube analysis
         uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9 # v7.0.0
         env:

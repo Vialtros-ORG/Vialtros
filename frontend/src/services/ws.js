@@ -99,8 +99,8 @@ const safeMaxReconnectAttempts = Math.max(
 
   const normalizedRouteId = Number(routeId);
 
-if (!Number.isFinite(normalizedRouteId)) {
-  throw new Error("connectTrackingWS requiere un routeId numerico");
+if (!Number.isSafeInteger(normalizedRouteId) || normalizedRouteId <= 0) {
+  throw new Error("connectTrackingWS requiere un routeId entero positivo");
 }
 
   if (typeof WebSocket === "undefined") {
@@ -108,8 +108,11 @@ if (!Number.isFinite(normalizedRouteId)) {
   }
 
   const connect = () => {
-    const wsUrl = `${resolveWsBaseUrl()}/tracking/${normalizedRouteId}/`;
-    socket = new WebSocket(wsUrl);
+    const token =
+      typeof localStorage !== "undefined" ? localStorage.getItem("access") : null;
+    const wsUrl = new URL(`${resolveWsBaseUrl()}/tracking/${normalizedRouteId}/`);
+    if (token) wsUrl.searchParams.set("token", token);
+    socket = new WebSocket(wsUrl.toString());
 
     socket.onopen = () => {
       wasConnected = true;

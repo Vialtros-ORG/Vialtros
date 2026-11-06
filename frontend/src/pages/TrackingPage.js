@@ -24,7 +24,7 @@ import {
   getETAMinutes,
   getTrackedStreetRoute,
   snapPointToRoad,
-  buildRoadPathBetweenPoints,
+  sortStopsByRouteOrder,
 } from "../services/routing";
 import "./TrackingPage.css";
 import NotificationCenter from "../components/notifications/NotificationCenter";
@@ -267,7 +267,7 @@ function trackingKey(t) {
 
 function normalizeIntermediateStops(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw
+  return sortStopsByRouteOrder(raw)
     .map((s, idx) => {
       const lat = toNumber(s?.latitude ?? s?.lat ?? s?.coords?.[0]);
       const lng = toNumber(s?.longitude ?? s?.lng ?? s?.coords?.[1]);
@@ -854,7 +854,7 @@ function RouteFinishedScreen({
 
       {/* ── Resumen ── */}
       <div className="rfs-section">
-        <p className="rfs-sec-label">RESUMEN DEL RECORRIDO</p>
+        <p className="rfs-sec-label">Resumen del recorrido</p>
 
         <div className="rfs-od-card">
           <div className="rfs-od-row">
@@ -1022,6 +1022,7 @@ export default function TrackingPage({ routeId: routeIdProp }) {
   const [userCoords, setUserCoords] = useState(null);
   const [eta, setEta] = useState(null);
   const [etaUpdated, setEtaUpdated] = useState(null);
+  const [routeDurationMs, setRouteDurationMs] = useState(null);
   const [nextStopEta, setNextStopEta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [wsStatus, setWsStatus] = useState("connecting");
@@ -1042,9 +1043,9 @@ export default function TrackingPage({ routeId: routeIdProp }) {
   const [adminActiveVehicles, setAdminActiveVehicles] = useState([]);
   const [adminAlerts, setAdminAlerts] = useState([]);
   const [adminRouteFilterIds, setAdminRouteFilterIds] = useState([]);
-  const [adminRouteOverlays, setAdminRouteOverlays] = useState([]);
   const [kpiCollapsed, setKpiCollapsed] = useState(false);
   const [routesCollapsed, setRoutesCollapsed] = useState(false);
+  const [mobileSheetCollapsed, setMobileSheetCollapsed] = useState(false);
   const [showAlertsPanel, setShowAlertsPanel] = useState(false);
   const [dismissedAlertKeys, setDismissedAlertKeys] = useState(new Set());
   const adminBellRef = useRef(null);
@@ -1136,6 +1137,7 @@ export default function TrackingPage({ routeId: routeIdProp }) {
     setGpsOverlayVisible(false);
     setGuidedRouteError("");
     setNavigationSteps(null);
+    setRouteDurationMs(null);
     setRouteStartedAt(null);
     setStartedByDriver(false);
     setElapsedMinutes(null);
@@ -1241,7 +1243,6 @@ export default function TrackingPage({ routeId: routeIdProp }) {
       setAdminActiveVehicles([]);
       setAdminAlerts([]);
       setAdminRouteFilterIds([]);
-      setAdminRouteOverlays([]);
       return undefined;
     }
 
@@ -1362,81 +1363,6 @@ export default function TrackingPage({ routeId: routeIdProp }) {
   }, [isAdminView]);
 
   useEffect(() => {
-    if (!isAdminView || adminRouteSummaries.length === 0) {
-      setAdminRouteOverlays([]);
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    const buildAdminRouteOverlays = async () => {
-      const overlays = await Promise.all(
-        adminRouteSummaries.map(async (route) => {
-          if (!route.origin || !route.destination) {
-            return { id: route.id, polyline: [] };
-          }
-
-          try {
-            // Prefer stored coordinates
-            const hasStoredOrigin =
-              Number.isFinite(route.origin_lat) &&
-              Number.isFinite(route.origin_lng);
-            const hasStoredDest =
-              Number.isFinite(route.destination_lat) &&
-              Number.isFinite(route.destination_lng);
-
-            const [from, to] = await Promise.all([
-              hasStoredOrigin
-                ? Promise.resolve([route.origin_lat, route.origin_lng])
-                : geocodeAddress(route.origin),
-              hasStoredDest
-                ? Promise.resolve([
-                    route.destination_lat,
-                    route.destination_lng,
-                  ])
-                : geocodeAddress(route.destination),
-            ]);
-
-            if (!Array.isArray(from) || !Array.isArray(to)) {
-              return { id: route.id, polyline: [] };
-            }
-
-            const waypointCoords = buildRouteWaypointCoordinates(
-              from,
-              to,
-              route.intermediate_stops,
-            );
-            const streetRoute =
-              await getStreetRouteThroughPoints(waypointCoords);
-            if (streetRoute?.coordinates?.length > 1) {
-              return { id: route.id, polyline: streetRoute.coordinates };
-            }
-
-            return {
-              id: route.id,
-              polyline: waypointCoords.length > 1 ? waypointCoords : [from, to],
-            };
-          } catch {
-            return { id: route.id, polyline: [] };
-          }
-        }),
-      );
-
-      if (!cancelled) {
-        setAdminRouteOverlays(
-          overlays.filter((overlay) => overlay.polyline.length > 1),
-        );
-      }
-    };
-
-    void buildAdminRouteOverlays();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [adminRouteSummaries, isAdminView]);
-
-  useEffect(() => {
     let mounted = true;
 
     async function loadData() {
@@ -1453,6 +1379,10 @@ export default function TrackingPage({ routeId: routeIdProp }) {
 
         if (!mounted) return;
         setRouteInfo(route);
+        setRoutePolyline(null);
+        setNavigationSteps(null);
+        setRouteDurationMs(null);
+        setRouteGeometryMode("pending");
 
         const normalizedInitial = initialTrackings
           .map((t) => normalizeTracking(t, new Date().toISOString()))
@@ -1524,7 +1454,7 @@ export default function TrackingPage({ routeId: routeIdProp }) {
             setForceBuenaventuraDemo(false);
             setRouteGeometryMode("pending");
 
-            // getStreetRoute includes retry+cache; fallback to straight line only as last resort
+            // Never draw a straight connector as a drivable route.
             const waypointCoords = buildRouteWaypointCoordinates(
               from,
               to,
@@ -1535,27 +1465,32 @@ export default function TrackingPage({ routeId: routeIdProp }) {
             if (!mounted) return;
             if (streetRoute && streetRoute.coordinates?.length > 1) {
               setRoutePolyline(streetRoute.coordinates);
+              setNavigationSteps(streetRoute.steps || null);
+              setRouteDurationMs(Number.isFinite(streetRoute.duration) ? streetRoute.duration : null);
               if (!streetRoute.isStraightLine) {
                 setRouteGeometryMode("verified");
-                setEta(Math.ceil(streetRoute.duration / 60));
+                setEta(Math.ceil(streetRoute.duration / 60000));
                 setEtaUpdated(new Date());
               } else {
                 setRouteGeometryMode("alternate");
               }
             } else {
               setRoutePolyline(null);
-              setRouteGeometryMode("pending");
+              setNavigationSteps(null);
+              setRouteDurationMs(null);
+              setRouteGeometryMode("unavailable");
             }
           } else {
-            // Geocoding devolvió null → usar demo
+            // No inventar una ruta demo cuando no se pudo resolver el recorrido real.
             setOriginCoords(null);
             setDestinationCoords(null);
             setRoutePolyline(null);
-            setRouteGeometryMode("pending");
+            setNavigationSteps(null);
+            setRouteGeometryMode("unavailable");
             setForceBuenaventuraDemo(true);
           }
         } else {
-          setRouteGeometryMode("pending");
+          setRouteGeometryMode("unavailable");
           setForceBuenaventuraDemo(true);
         }
       } catch (err) {
@@ -1658,16 +1593,20 @@ export default function TrackingPage({ routeId: routeIdProp }) {
               await getStreetRouteThroughPoints(waypointCoords);
             if (streetRoute && streetRoute.coordinates?.length > 1) {
               setRoutePolyline(streetRoute.coordinates);
+              setNavigationSteps(streetRoute.steps || null);
+              setRouteDurationMs(Number.isFinite(streetRoute.duration) ? streetRoute.duration : null);
               if (!streetRoute.isStraightLine) {
                 setRouteGeometryMode("verified");
-                setEta(Math.ceil(streetRoute.duration / 60));
+                setEta(Math.ceil(streetRoute.duration / 60000));
                 setEtaUpdated(new Date());
               } else {
                 setRouteGeometryMode("alternate");
               }
             } else {
               setRoutePolyline(null);
-              setRouteGeometryMode("pending");
+              setNavigationSteps(null);
+              setRouteDurationMs(null);
+              setRouteGeometryMode("unavailable");
             }
           }
         }
@@ -1948,35 +1887,15 @@ export default function TrackingPage({ routeId: routeIdProp }) {
             setMatchedLiveRouteHistory(matchedRoute.coordinates);
             return;
           }
-          // Fallback: build road path between sparse GPS points
-          try {
-            const roadPath = await buildRoadPathBetweenPoints(liveRouteHistory);
-            if (!cancelled && roadPath?.length > 1) {
-              setMatchedLiveRouteHistory(roadPath);
-              return;
-            }
-          } catch {
-            /* use raw points */
-          }
-          if (!cancelled) setMatchedLiveRouteHistory(liveRouteHistory);
+          setMatchedLiveRouteHistory([]);
         })
-        .catch(async () => {
+        .catch(() => {
           if (cancelled) return;
           lastMatchedRouteRef.current = {
             historyLength: liveRouteHistory.length,
             lastPoint: latestPoint,
           };
-          // Fallback: build road path
-          try {
-            const roadPath = await buildRoadPathBetweenPoints(liveRouteHistory);
-            if (!cancelled && roadPath?.length > 1) {
-              setMatchedLiveRouteHistory(roadPath);
-              return;
-            }
-          } catch {
-            /* use raw points */
-          }
-          if (!cancelled) setMatchedLiveRouteHistory(liveRouteHistory);
+          if (!cancelled) setMatchedLiveRouteHistory([]);
         });
     }, 600);
 
@@ -2165,6 +2084,7 @@ export default function TrackingPage({ routeId: routeIdProp }) {
       ((plannedDistanceKm - remainingDistanceKm) / plannedDistanceKm) * 100,
     );
   }, [plannedDistanceKm, remainingDistanceKm]);
+  const driverRouteProgressPercent = routeIsLive ? routeProgressPercent : 0;
 
   const vehicleLabel = useMemo(() => {
     const driverDetail = routeInfo?.driver_detail;
@@ -2252,6 +2172,14 @@ export default function TrackingPage({ routeId: routeIdProp }) {
         className: "verified",
         label: "Recorrido finalizado",
         statusLabel: "Finalizada",
+      };
+    }
+
+    if (routeGeometryMode === "unavailable") {
+      return {
+        className: "unavailable",
+        label: "Trazado no disponible",
+        statusLabel: routeIsLive ? "En ruta" : "Sin trazado",
       };
     }
 
@@ -2396,13 +2324,24 @@ export default function TrackingPage({ routeId: routeIdProp }) {
     );
   }, [adminRouteSummaries, hasAdminRouteFilter, normalizedAdminRouteFilterIds]);
 
-  const highlightedAdminRouteIds = useMemo(
-    () => (hasAdminRouteFilter ? normalizedAdminRouteFilterIds : []),
-    [hasAdminRouteFilter, normalizedAdminRouteFilterIds],
-  );
-
   const displayActiveVehicles = useMemo(() => {
-    if (isAdminView) return adminActiveVehicles;
+    if (isAdminView) {
+      const vehicles = adminActiveVehicles.map((vehicle) => {
+        const routeId = Number(vehicle.route?.id ?? vehicle.route);
+        const routeSummary = adminRouteSummaries.find(
+          (route) => Number(route.id) === routeId,
+        );
+        return {
+          ...vehicle,
+          route: routeId,
+          label: vehicle.label || routeSummary?.name || (Number.isFinite(routeId) ? `Ruta #${routeId}` : "Vehículo"),
+          status: vehicle.status || (routeSummary?.is_live ? "En ruta" : "Detenido"),
+        };
+      });
+      return hasAdminRouteFilter
+        ? vehicles.filter((vehicle) => normalizedAdminRouteFilterIds.includes(Number(vehicle.route)))
+        : vehicles;
+    }
     if (!snappedVehiclePoint || activeVehicles.length === 0)
       return activeVehicles;
 
@@ -2414,7 +2353,7 @@ export default function TrackingPage({ routeId: routeIdProp }) {
         longitude: snappedVehiclePoint[1],
       };
     });
-  }, [activeVehicles, adminActiveVehicles, isAdminView, snappedVehiclePoint]);
+  }, [activeVehicles, adminActiveVehicles, adminRouteSummaries, hasAdminRouteFilter, isAdminView, normalizedAdminRouteFilterIds, snappedVehiclePoint]);
 
   const totalStudents = adminStats?.students_total ?? 0;
   const contextualAdminAlerts = useMemo(() => {
@@ -2630,37 +2569,20 @@ export default function TrackingPage({ routeId: routeIdProp }) {
           waypointCoords.length > 1
             ? await getStreetRouteThroughPoints(waypointCoords)
             : null;
-        let routeCoordinates =
-          streetRoute && !streetRoute.isStraightLine
-            ? streetRoute.coordinates
-            : null;
-
-        // If OSRM route failed, build road path between endpoints as last resort
-        if (!routeCoordinates && waypointCoords.length > 1) {
-          try {
-            const roadPath = await buildRoadPathBetweenPoints(waypointCoords);
-            if (roadPath?.length > 2) routeCoordinates = roadPath;
-          } catch {
-            /* use straight line as last resort */
-          }
+        const routeCoordinates =
+          streetRoute?.coordinates?.length > 1 ? streetRoute.coordinates : null;
+        if (!routeCoordinates) {
+          setRouteGeometryMode("unavailable");
+          throw new Error("road-route-unavailable");
         }
-
-        playbackRoute =
-          routeCoordinates ||
-          (waypointCoords.length > 1 ? waypointCoords : null);
+        playbackRoute = routeCoordinates;
         if (routeCoordinates?.length > 1) {
           setRoutePolyline(playbackRoute);
           setNavigationSteps(streetRoute?.steps || null);
           setOriginCoords(from);
           setDestinationCoords(to);
           setForceBuenaventuraDemo(false);
-          setRouteGeometryMode(
-            streetRoute && !streetRoute.isStraightLine
-              ? "verified"
-              : "alternate",
-          );
-        } else if (Array.isArray(from) && Array.isArray(to)) {
-          setRouteGeometryMode("alternate");
+            setRouteGeometryMode("verified");
         }
       }
 
@@ -2704,8 +2626,11 @@ export default function TrackingPage({ routeId: routeIdProp }) {
       // Calculate realistic total duration and per-step delays
       try {
         const totalDistanceKm = polylineDistanceKm(exactRoute) || 0;
-        const totalDurationSec = (streetRoute && Number.isFinite(streetRoute.duration))
+        const durationMs = Number.isFinite(streetRoute?.duration)
           ? Number(streetRoute.duration)
+          : routeDurationMs;
+        const totalDurationSec = Number.isFinite(durationMs)
+          ? durationMs / 1000
           : totalDistanceKm > 0
             ? (totalDistanceKm / Math.max(GUIDED_ROUTE_SPEED_KMH, 1)) * 3600
             : (GUIDED_ROUTE_STEP_MS / 1000) * sampledRoute.length;
@@ -2738,11 +2663,11 @@ export default function TrackingPage({ routeId: routeIdProp }) {
       setGuidedRouteLoading(false);
       routeEndNotifiedRef.current = false;
       void runGuidedRouteStep();
-    } catch {
+    } catch (error) {
       stopGuidedRoute();
-      setGuidedRouteError(
-        "No fue posible preparar la ruta guiada para esta ruta.",
-      );
+      setGuidedRouteError(error?.message === "road-route-unavailable"
+        ? "No se encontró un recorrido por calles para esta ruta. Revisa el origen, el destino y la conexión antes de iniciar el GPS."
+        : "No fue posible preparar la ruta guiada para esta ruta.");
     } finally {
       setGuidedRouteLoading(false);
     }
@@ -3193,9 +3118,16 @@ export default function TrackingPage({ routeId: routeIdProp }) {
         {/* ======================================================
             SIDEBAR
         ====================================================== */}
-        <aside className="tracking-analytics-panel">
+        <aside className={`tracking-analytics-panel${mobileSheetCollapsed ? " mobile-sheet-collapsed" : ""}`}>
           {/* Cabecera sidebar */}
           <div className="sidebar-top">
+            <button
+              type="button"
+              className="mobile-sheet-handle"
+              onClick={() => setMobileSheetCollapsed((collapsed) => !collapsed)}
+              aria-label={mobileSheetCollapsed ? "Ampliar panel de seguimiento" : "Minimizar panel de seguimiento"}
+              aria-expanded={!mobileSheetCollapsed}
+            ><span aria-hidden="true" /></button>
             <button
               type="button"
               className="sidebar-back"
@@ -3424,7 +3356,7 @@ export default function TrackingPage({ routeId: routeIdProp }) {
                 selectedRouteId={selectedRouteId}
                 routeBadge={routeBadge}
                 displayIntermediateStops={displayIntermediateStops}
-                routeProgressPercent={routeProgressPercent}
+                routeProgressPercent={driverRouteProgressPercent}
                 collapsibleStops
               >
                 {showStopModal && (
@@ -3433,7 +3365,7 @@ export default function TrackingPage({ routeId: routeIdProp }) {
                   </div>
                 )}
 
-                <p className="drv-stats-label">RECORRIDO HASTA AHORA</p>
+                <p className="drv-stats-label">Recorrido hasta ahora</p>
 
                 <div className="drv-stats-grid">
                   {/* Recorrido: solo muestra distancia real avanzada una vez iniciada */}
@@ -3617,8 +3549,6 @@ export default function TrackingPage({ routeId: routeIdProp }) {
               userCoords={userCoords}
               mapHeight="100%"
               focusAllVehicles={isAdminView}
-              routeOverlays={isAdminView ? adminRouteOverlays : []}
-              highlightedRouteIds={isAdminView ? highlightedAdminRouteIds : []}
               eta={eta}
               etaUpdated={etaUpdated}
               gpsMode={guidedRouteRunning && gpsOverlayVisible}

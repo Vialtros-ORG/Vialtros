@@ -49,9 +49,13 @@ function App() {
     () =>
       localStorage.getItem("role") || (isLocalAccessEnabled() ? "admin" : null),
   );
+  const [authResolved, setAuthResolved] = useState(
+    () => !localStorage.getItem("access"),
+  );
 
   useEffect(() => {
     if (isAuth) {
+      setAuthResolved(false);
       getCurrentUser()
         .then((user) => {
           if (user && user.role) {
@@ -67,19 +71,25 @@ function App() {
           clearSession();
           setIsAuth(false);
           setRole(null);
-        });
+        })
+        .finally(() => setAuthResolved(true));
     } else {
       setRole(null);
       localStorage.removeItem("role");
+      setAuthResolved(true);
     }
   }, [isAuth]);
 
-  const handleLogin = useCallback(() => setIsAuth(true), []);
+  const handleLogin = useCallback(() => {
+    setAuthResolved(false);
+    setIsAuth(true);
+  }, []);
 
   const handleLogout = () => {
     clearSession();
 
     if (ensureLocalAccessSession()) {
+      setAuthResolved(false);
       setIsAuth(true);
       setRole(localStorage.getItem("role") || "admin");
       return;
@@ -91,7 +101,7 @@ function App() {
 
   return (
     <GoogleMapsProvider>
-    <NotificationProvider isAuth={isAuth} role={role}>
+    <NotificationProvider isAuth={isAuth && authResolved} role={role}>
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <div className="bg-gray-100 h-screen flex flex-col overflow-hidden">
         {isAuth && (
@@ -125,7 +135,11 @@ function App() {
         )}
         <div className="flex-1 min-h-0 overflow-auto flex flex-col">
           <div className="flex-1">
-          <Routes>
+          {isAuth && !authResolved ? (
+            <div className="flex flex-1 items-center justify-center text-sm text-gray-500">
+              Validando sesión...
+            </div>
+          ) : <Routes>
             <Route
               path="/activity"
               element={
@@ -235,13 +249,13 @@ function App() {
               path="*"
               element={<Navigate to={isAuth ? "/dashboard" : "/"} />}
             />
-          </Routes>
+          </Routes>}
           </div>
           <Footer />
         </div>
       </div>
     </Router>
-    {role !== "admin" && <NotificationToast />}
+    {authResolved && role !== "admin" && <NotificationToast />}
     </NotificationProvider>
     </GoogleMapsProvider>
   );

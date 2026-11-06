@@ -54,6 +54,7 @@ No necesitas declararlas manualmente en el `.env` de raíz.
 | `REACT_APP_GOOGLE_MAPS_MAP_ID` | Vacío | Map ID opcional de Google Maps. |
 | `REACT_APP_GOOGLE_ROUTES_API_KEY` | Vacío | Clave para Google Routes API; si no se define, el frontend puede reutilizar la clave de Maps. |
 | `REACT_APP_MAPBOX_TOKEN` | Vacío | Token opcional para mapas Mapbox. |
+| `REACT_APP_ROUTING_API_URL` | Vacío | URL opcional de un servicio compatible con OSRM; sin ella se usa el endpoint público de demostración. |
 
 Las variables de esta tabla se pasan como argumentos al build del frontend. Si
 se modifican, reconstruye la imagen:
@@ -102,10 +103,13 @@ navegador.
 | `REACT_APP_GOOGLE_MAPS_MAP_ID` | Map ID opcional para funciones de mapas vectoriales. |
 | `REACT_APP_GOOGLE_ROUTES_API_KEY` | Clave de Google Routes API; puede reutilizar la clave Maps. |
 | `REACT_APP_MAPBOX_TOKEN` | Token opcional de Mapbox; el mapa de tracking tiene estilo CartoDB alternativo. |
+| `REACT_APP_ROUTING_API_URL` | URL opcional de un servicio compatible con OSRM. |
 
-Las claves cliente no deben tratarse como secretos de servidor. Restringe las
-claves de Maps y Mapbox por dominio y API en sus consolas. Consulta
-[Mapas y rutas](mapas.md) para los servicios usados y su configuración.
+Las claves cliente no deben tratarse como secretos de servidor. Cada integrante
+debe configurar sus propias claves locales; no se comparten ni se versionan.
+Restringe las claves de Maps y Mapbox por dominio y API en sus consolas.
+Consulta [Mapas y rutas](mapas.md) para crear las claves, elegir restricciones,
+configurar cada modo de ejecución y conocer los proveedores alternativos.
 
 ## Seguridad y resolución de problemas
 

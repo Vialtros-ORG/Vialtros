@@ -15,6 +15,8 @@ import {
 import { getDriverTrackings } from "../services/dashboard";
 import { geocodeAddress, snapPointToRoad } from "../services/routing";
 import LocationAutocomplete from "../components/LocationAutocomplete";
+import { isValidPhone, normalizePhone } from "../services/validation";
+import { getApiErrorMessage } from "../services/apiErrors";
 
 const EMPTY_FORM = {
   user: "",
@@ -113,8 +115,8 @@ export default function AdminPassengersPage({ role, onLogout }) {
       setFormError("El usuario es obligatorio");
       return;
     }
-    if (!form.phone.trim()) {
-      setFormError("El teléfono es obligatorio");
+    if (!isValidPhone(form.phone, { required: true })) {
+      setFormError("Ingresa un teléfono válido (por ejemplo, +57 300 123 4567).");
       return;
     }
     setSaving(true);
@@ -146,7 +148,7 @@ export default function AdminPassengersPage({ role, onLogout }) {
       }
 
       const payload = {
-        phone: form.phone,
+        phone: normalizePhone(form.phone),
         pickup_address: form.pickupAddress.trim(),
         pickup_lat: pickupLat,
         pickup_lng: pickupLng,
@@ -162,10 +164,7 @@ export default function AdminPassengersPage({ role, onLogout }) {
       setModal(null);
       load(search);
     } catch (e) {
-      const d = e?.response?.data;
-      setFormError(
-        typeof d === "object" ? JSON.stringify(d) : "Error al guardar",
-      );
+      setFormError(getApiErrorMessage(e, "No se pudo guardar el pasajero."));
     } finally {
       setSaving(false);
     }
@@ -206,7 +205,7 @@ export default function AdminPassengersPage({ role, onLogout }) {
   );
 
   return (
-    <div className="min-h-screen flex bg-gray-50 font-sans">
+    <div className="flex min-h-screen flex-col bg-gray-50 font-sans md:flex-row">
       <Sidebar role={role} onLogout={onLogout} />
       <main className="flex-1 min-w-0 py-8 px-6 md:px-10">
         <div className="flex items-center justify-between mb-8">
@@ -265,7 +264,7 @@ export default function AdminPassengersPage({ role, onLogout }) {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase tracking-wider">
+                <tr className="border-b border-gray-100 text-xs text-gray-400 tracking-wider">
                   <th
                     onClick={() => toggleSort("username")}
                     className="text-left px-5 py-3 font-medium cursor-pointer select-none hover:text-gray-600"
@@ -458,12 +457,16 @@ export default function AdminPassengersPage({ role, onLogout }) {
             <label className="text-xs font-medium text-gray-600">
               Teléfono *
               <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={24}
                 className="mt-1 block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={form.phone}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, phone: e.target.value }))
                 }
-                placeholder="ej. 600 123 456"
+                placeholder="ej. +57 300 123 4567"
               />
             </label>
             <label className="text-xs font-medium text-gray-600">

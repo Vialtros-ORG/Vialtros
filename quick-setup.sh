@@ -75,21 +75,17 @@ if [[ ! $REPLY =~ ^[Ss]$ ]]; then
     echo -e "${YELLOW}   Generando archivo .env de ejemplo...${NC}"
     
     if [ ! -f "backend/.env" ]; then
-        cat > backend/.env << 'EOF'
+        DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')
+        cat > backend/.env << EOF
 # ===== CONFIGURACIÓN DE DJANGO (PRODUCCIÓN) =====
-DJANGO_SECRET_KEY=t40z8_wl3zb_9f3xd7zdf+yk2@zk%e-&t_=j#86h4xh83=6d$
-DJANGO_DEBUG=False
+DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+DJANGO_DEBUG=True
 DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
 
-# ===== CONFIGURACIÓN DE BASE DE DATOS (NEON) =====
-DB_ENGINE=django.db.backends.postgresql
-DB_NAME=neondb
-DB_USER=neondb_owner
-DB_PASSWORD=npg_xD5aF7juWrHc
-DB_HOST=ep-lucky-poetry-ap6otfso-pooler.c-7.us-east-1.aws.neon.tech
-DB_PORT=5432
+# ===== BASE DE DATOS =====
+# Desarrollo local usa SQLite. Para PostgreSQL, copia la configuración de backend/.env.example.
 
-# ===== CORS PARA PRODUCCIÓN =====
+# ===== CORS LOCAL =====
 CORS_ALLOWED_ORIGINS=http://localhost:3000
 
 # ===== EMAIL (OPCIONAL) =====
@@ -130,11 +126,11 @@ python manage.py migrate
 echo -e "${GREEN}✓ Migraciones completadas${NC}"
 
 # 6. Crear usuario admin
-echo -e "${YELLOW}[6] Creando usuario administrador de prueba...${NC}"
+echo -e "${YELLOW}[6] Creando usuario administrador...${NC}"
 
-python manage.py create_admin
+python manage.py create_admin --username admin_vialtros
 
-echo -e "${GREEN}✓ Usuario admin creado (admin / admin123)${NC}"
+echo -e "${GREEN}✓ Cuenta administradora verificada; la contraseña no se muestra${NC}"
 
 # 7. Recolectar estáticos
 echo -e "${YELLOW}[7] Recolectando archivos estáticos...${NC}"
@@ -223,9 +219,7 @@ echo -e "   ${GREEN}curl http://localhost:8000${NC}"
 echo -e "   O abre en navegador: ${BLUE}http://localhost:3000${NC}"
 echo ""
 
-echo -e "${YELLOW}Credenciales de prueba:${NC}"
-echo -e "   Usuario: ${GREEN}admin${NC}"
-echo -e "   Contraseña: ${GREEN}admin123${NC}"
+echo -e "${YELLOW}Acceso administrador:${NC} usa el usuario admin_vialtros y la contraseña privada que definiste durante la configuración."
 echo ""
 
 echo -e "${YELLOW}Para más información, consulta:${NC}"

@@ -28,32 +28,36 @@ Usa el correo asociado a tu cuenta de GitHub para que los commits aparezcan
 vinculados a tu usuario. No agregues credenciales, claves ni archivos `.env`
 al repositorio.
 
-Consulta el [tablero de Trello de Vialtros](https://trello.com/b/Uu3eBPav/vialtros)
-para encontrar la tarea asignada y su identificador.
+Consulta el [tablero de GitHub Projects](https://github.com/orgs/Vialtros-ORG/projects/1)
+para encontrar la tarea asignada y su issue de GitHub asociado.
 
 ## Estrategia de ramas
 
 ```mermaid
 flowchart LR
     master --> Develop
-    Develop --> feature["feature/identificador-descripcion"]
+    Develop --> feat["feat/identificador-descripcion"]
     Develop --> fix["fix/identificador-descripcion"]
+    Develop --> docs["docs/identificador-descripcion"]
     Develop --> task["task/identificador-descripcion"]
-    feature -->|Pull Request| Develop
+    feat -->|Pull Request| Develop
     fix -->|Pull Request| Develop
+    docs -->|Pull Request| Develop
     task -->|Pull Request| Develop
     Develop -->|Integración de versión| master
 ```
 
 - **`master`** — rama de publicación/despliegue.
 - **`Develop`** — rama de integración para el trabajo en curso.
-- **`feature/`** — funcionalidades nuevas.
+- **`feat/`** — funcionalidades nuevas.
 - **`fix/`** — correcciones de errores.
-- **`task/`** — documentación, configuración, dependencias y otras tareas.
+- **`docs/`** — cambios de documentación.
+- **`task/`** — configuración, dependencias y otras tareas técnicas.
 
 Toda rama de trabajo debe partir de `Develop`, no de `master`. Incluye el
-identificador de la tarjeta de Trello en el nombre cuando exista, por ejemplo:
-`task/12-guia-contribucion`.
+identificador del issue de GitHub asociado a la tarea cuando exista, por
+ejemplo: `docs/12-guia-contribucion`. Si el elemento de GitHub Projects no
+tiene issue, usa una descripción breve y reconocible.
 
 ## Flujo de trabajo
 
@@ -61,14 +65,14 @@ Actualiza `Develop` y crea una rama para tu tarea:
 
 ```bash
 git switch Develop
+git fetch origin
 git pull --ff-only origin Develop
-git switch -c feature/12-nombre-de-la-tarea
+git switch -c feat/12-nombre-de-la-tarea
 ```
 
-Usa el prefijo `fix/` para una corrección o `task/` para otro tipo de trabajo.
-Sustituye `12` por el identificador de tu tarjeta de Trello. Si la tarea no
-tiene tarjeta, acuerda su referencia con el equipo antes de inventar un
-identificador.
+Usa `fix/` para una corrección, `docs/` para documentación o `task/` para otra
+tarea técnica. Sustituye `12` por el número del issue asociado; si no existe,
+usa una descripción breve en vez de inventar un identificador.
 
 Realiza cambios pequeños y enfocados. Antes de confirmar, revisa qué vas a
 incluir:
@@ -85,7 +89,7 @@ publica la rama:
 ```bash
 git add ruta/al/archivo
 git commit -m "docs: agrega guía para contribuir"
-git push -u origin feature/12-nombre-de-la-tarea
+git push -u origin feat/12-nombre-de-la-tarea
 ```
 
 Para publicar cambios posteriores, usa `git push`.
@@ -112,7 +116,8 @@ Integra toda rama de trabajo a `Develop` mediante un Pull Request (PR); no
 hagas push directo a `Develop` ni a `master`. En la descripción del PR incluye:
 
 - **Qué cambió** y el motivo.
-- **Tarea asociada:** identificador y enlace a la tarjeta de Trello.
+- **Tarea asociada:** número y enlace al issue de GitHub o al elemento de
+  [GitHub Projects](https://github.com/orgs/Vialtros-ORG/projects/1).
 - **Validación:** comandos ejecutados y sus resultados; menciona también lo que
   no se pudo ejecutar.
 - **Imágenes de prueba:** adjunta una captura de pantalla o el resultado de una
@@ -189,5 +194,5 @@ desde `backend/` si tienes instaladas las dependencias de
 5. La integración de `Develop` a `master` corresponde al flujo de publicación
    del proyecto.
 
-Mantén la tarjeta de Trello vinculada a la rama y al Pull Request durante todo
-el trabajo para conservar la trazabilidad.
+Mantén el issue o elemento de GitHub Projects vinculado a la rama y al Pull
+Request durante todo el trabajo para conservar la trazabilidad.

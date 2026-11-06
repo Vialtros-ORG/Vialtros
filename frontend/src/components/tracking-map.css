@@ -58,7 +58,7 @@
   padding: 16px 20px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-family: var(--vialtros-font-sans);
   z-index: 500;
   max-width: 200px;
 }
@@ -67,7 +67,7 @@
   font-weight: 700;
   font-size: 12px;
   color: #1a3a52;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
   padding-bottom: 8px;

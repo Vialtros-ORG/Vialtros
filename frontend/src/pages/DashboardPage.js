@@ -14,6 +14,8 @@ import {
   updateTrackingStatusByPassenger,
 } from "../services/tracking";
 import { icons } from "../components/dashboard/icons";
+import useTrackingRoute from "../components/dashboard/useTrackingRoute";
+import { normalizePersonName } from "../services/validation";
 
 const EMPTY_WEEKLY_ACTIVITY = [
   { day: "L", value: 0 },
@@ -29,21 +31,6 @@ const ROLE_LABELS = {
   admin: "Administrador",
   driver: "Conductor",
   user: "Usuario",
-};
-
-const ROLE_BADGE_CONFIG = {
-  admin: {
-    label: "Centro administrativo",
-    className: "border-blue-200 bg-blue-50 text-blue-700",
-  },
-  driver: {
-    label: "Operación en ruta",
-    className: "border-cyan-200 bg-cyan-50 text-cyan-700",
-  },
-  user: {
-    label: "Seguimiento personal",
-    className: "border-slate-200 bg-slate-100 text-slate-700",
-  },
 };
 
 const ROLE_QUICK_ACTIONS = {
@@ -116,18 +103,6 @@ function getGreeting() {
   return "Buenas noches";
 }
 
-// Funciones eliminadas: formatDate, getInitials, getPassengerStatusConfig no se utilizan actualmente
-
-
-function getRoleBadgeConfig(role) {
-  return (
-    ROLE_BADGE_CONFIG[role] || {
-      label: "Seguimiento personal",
-      className: "border-slate-200 bg-slate-100 text-slate-700",
-    }
-  );
-}
-
 function buildDashboardContent({
   role,
   loading,
@@ -192,6 +167,51 @@ function buildDashboardContent({
     };
   }
 
+  if (role === "user") {
+    return {
+      quickActions,
+      summaryConfig,
+      headlineStats: [
+        {
+          label: "Rol activo",
+          value: roleLabel,
+          accent: "text-slate-900",
+        },
+        {
+          label: "Rutas asignadas",
+          value: loading ? "—" : (stats?.routes ?? 0),
+          accent: "text-blue-700",
+        },
+        {
+          label: "Puntos GPS registrados",
+          value: loading ? "—" : (stats?.trackings ?? 0),
+          accent: "text-emerald-700",
+        },
+      ],
+      metricCards: [
+        {
+          icon: icons.routes,
+          value: loading ? "—" : (stats?.routes ?? 0),
+          label: "Rutas asignadas",
+          color: "blue",
+        },
+        {
+          icon: icons.users,
+          value: loading ? "—" : (stats?.users ?? 0),
+          label: "Pasajeros en tu ruta",
+          color: "green",
+        },
+        {
+          icon: icons.tracking,
+          value: loading ? "—" : (stats?.trackings ?? 0),
+          label: "Puntos GPS registrados",
+          color: "purple",
+          trendLabel: "Ruta asignada",
+        },
+      ],
+    };
+  }
+
   return {
     quickActions,
     summaryConfig,
@@ -251,11 +271,11 @@ function buildDashboardContent({
       },
       {
         icon: icons.tracking,
-        value: role === "user" ? "1" : loading ? "—" : (stats?.trackings ?? 0),
-        label: role === "user" ? "Ruta vinculada" : "Tracking activos",
+        value: loading ? "—" : (stats?.trackings ?? 0),
+        label: "Tracking activos",
         color: "purple",
         trend: "up",
-        trendLabel: role === "user" ? "Asignada" : "En vivo",
+        trendLabel: "En vivo",
       },
     ],
   };
@@ -270,8 +290,7 @@ export default function DashboardPage({ role, onLogout }) {
   const [recentActivityLoading, setRecentActivityLoading] = useState(true);
 
   const usernameRaw = localStorage.getItem("username") || "Usuario";
-  const username =
-    usernameRaw.charAt(0).toUpperCase() + usernameRaw.slice(1).toLowerCase();
+  const username = normalizePersonName(usernameRaw.replace(/[._-]+/g, " "));
 
   useEffect(() => {
     getDashboardStats()
@@ -362,15 +381,12 @@ export default function DashboardPage({ role, onLogout }) {
   );
 
   const roleLabel = ROLE_LABELS[role] || "Usuario";
+  const trackingState = useTrackingRoute(role);
 
   const maxWeeklyValue = Math.max(
     ...weeklyActivity.map((item) => item.value),
     1,
   );
-  const roleBadge = getRoleBadgeConfig(role);
-  // roleBadge se comenta ya que no se utiliza en el componente
-  void roleBadge;
-  
   const { metricCards } = useMemo(
     () =>
       buildDashboardContent({
@@ -392,15 +408,17 @@ export default function DashboardPage({ role, onLogout }) {
   );
 
   return (
-  <div className="min-h-screen flex bg-slate-100 font-sans">
-    <Sidebar role={role} onLogout={onLogout} />
+  <div className="flex min-h-screen flex-col bg-slate-50 font-sans md:flex-row">
+    <Sidebar role={role} onLogout={onLogout} trackingState={trackingState} />
 
     <main className="flex-1 min-w-0 py-8 px-6 md:px-10 overflow-y-auto">
       <section className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">
           {getGreeting()}, <span className="text-blue-700">{username}</span>
         </h1>
-        <p className="mt-2 text-sm text-slate-500">Panel de control</p>
+        <p className="mt-2 text-sm text-slate-500">
+          Panel de control · Rol: {roleLabel}
+        </p>
       </section>
 
       <section className="mb-6">
@@ -421,7 +439,7 @@ export default function DashboardPage({ role, onLogout }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-5 mb-6">
         <div className="flex flex-col gap-5">
-          <HeroCard role={role} />
+          <HeroCard role={role} trackingState={trackingState} />
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-6">
             <div className="flex items-center justify-between mb-4 gap-3">

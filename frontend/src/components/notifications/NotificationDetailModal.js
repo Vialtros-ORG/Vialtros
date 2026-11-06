@@ -158,7 +158,7 @@ export default function NotificationDetailModal({ notification, onClose }) {
               <Icon className={`text-2xl ${color}`} />
             </div>
             <div>
-              <p className={`text-xs font-semibold uppercase tracking-wide ${color}`}>{label}</p>
+              <p className={`text-xs font-semibold tracking-wide ${color}`}>{label}</p>
               <p className="text-base font-bold text-gray-900 mt-0.5 leading-tight">
                 {notification.title}
               </p>
@@ -177,7 +177,7 @@ export default function NotificationDetailModal({ notification, onClose }) {
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           {/* Mensaje completo */}
           <section>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+            <p className="text-xs font-semibold tracking-wide text-gray-400 mb-2">
               Detalle
             </p>
             <p className="text-sm text-gray-700 leading-relaxed">
@@ -212,7 +212,7 @@ export default function NotificationDetailModal({ notification, onClose }) {
           {/* Formulario de mensaje al conductor */}
           {canSendMessage && (
             <section>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+              <p className="text-xs font-semibold tracking-wide text-gray-400 mb-3">
                 Enviar mensaje al conductor
               </p>
               {sent ? (

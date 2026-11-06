@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from datetime import timedelta
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
 
@@ -31,6 +32,16 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-dev-only-chang
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+
+if not DEBUG and (
+    len(SECRET_KEY) < 50
+    or SECRET_KEY.startswith('django-insecure-')
+    or SECRET_KEY.lower() in {'change_me', 'changeme', 'replace-me'}
+    or SECRET_KEY.lower().startswith('replace_')
+):
+    raise ImproperlyConfigured(
+        'Configura DJANGO_SECRET_KEY con un secreto único de al menos 50 caracteres antes de ejecutar en producción.'
+    )
 
 ALLOWED_HOSTS = os.environ.get(
     'DJANGO_ALLOWED_HOSTS',

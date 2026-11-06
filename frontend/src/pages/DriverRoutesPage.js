@@ -60,7 +60,7 @@ export default function DriverRoutesPage({ onLogout }) {
   );
 
   return (
-    <div className="min-h-screen flex bg-gray-50 font-sans">
+    <div className="flex min-h-screen flex-col bg-gray-50 font-sans md:flex-row">
       <Sidebar role="driver" onLogout={onLogout} />
 
       <main className="flex-1 min-w-0 py-8 px-6 md:px-10 overflow-y-auto">
@@ -92,7 +92,7 @@ export default function DriverRoutesPage({ onLogout }) {
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-400">
               Rutas activas
             </p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
@@ -100,7 +100,7 @@ export default function DriverRoutesPage({ onLogout }) {
             </p>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-400">
               Estudiantes totales
             </p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
@@ -108,7 +108,7 @@ export default function DriverRoutesPage({ onLogout }) {
             </p>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-400">
               Trackings activos
             </p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
@@ -171,7 +171,7 @@ export default function DriverRoutesPage({ onLogout }) {
                   <div className="flex items-center gap-3 px-4 py-3">
                     <span className="h-2.5 w-2.5 rounded-full bg-blue-500 shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-blue-600">Origen</p>
+                      <p className="text-[10px] font-semibold tracking-[0.15em] text-blue-600">Origen</p>
                       <p className="text-sm font-medium text-slate-800 truncate">{route.origin || '—'}</p>
                     </div>
                   </div>
@@ -179,7 +179,7 @@ export default function DriverRoutesPage({ onLogout }) {
                   <div className="flex items-center gap-3 px-4 py-3">
                     <span className="h-2.5 w-2.5 rounded-full bg-slate-400 shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Destino</p>
+                      <p className="text-[10px] font-semibold tracking-[0.15em] text-slate-500">Destino</p>
                       <p className="text-sm font-medium text-slate-800 truncate">{route.destination || '—'}</p>
                     </div>
                   </div>

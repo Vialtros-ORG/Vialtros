@@ -416,7 +416,7 @@ export default function LandingPage() {
       {/* HERO */}
       <section className="w-full px-8 md:px-20 pt-20 pb-20 flex flex-col md:flex-row items-center gap-16 bg-gradient-to-r from-blue-100 to-indigo-200">
         <div className="flex-1 flex flex-col items-start">
-          <span className="inline-flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-600 text-sm font-medium px-4 py-1.5 rounded-full mb-7 uppercase tracking-wider">
+          <span className="inline-flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-600 text-sm font-medium px-4 py-1.5 rounded-full mb-7 tracking-wider">
             <span className="w-2 h-2 bg-emerald-500 rounded-full inline-block"></span>
             Plataforma SaaS · En vivo
           </span>
@@ -466,7 +466,7 @@ export default function LandingPage() {
           <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl p-6 relative overflow-hidden">
             <div className="absolute -top-12 -right-12 w-48 h-48 bg-blue-50 rounded-full opacity-70"></div>
             <div className="flex items-center justify-between mb-5 relative z-10">
-              <span className="text-sm font-semibold text-gray-400 uppercase tracking-widest">
+              <span className="text-sm font-semibold text-gray-400 tracking-widest">
                 Rutas activas hoy
               </span>
               <span className="flex items-center gap-2 text-emerald-500 text-sm font-medium">
@@ -547,7 +547,7 @@ export default function LandingPage() {
         className="w-full px-8 md:px-20 py-24 bg-gradient-to-r from-blue-100 to-indigo-200"
       >
         <div className="w-12 h-0.5 bg-blue-600 mb-5"></div>
-        <p className="text-blue-600 text-sm font-semibold uppercase tracking-widest mb-3">
+        <p className="text-blue-600 text-sm font-semibold tracking-widest mb-3">
           Sectores
         </p>
         <h2 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">
@@ -585,7 +585,7 @@ export default function LandingPage() {
         className="w-full px-8 md:px-20 py-24 bg-gradient-to-r from-blue-100 to-indigo-200"
       >
         <div className="w-12 h-0.5 bg-blue-600 mb-5"></div>
-        <p className="text-blue-600 text-sm font-semibold uppercase tracking-widest mb-3">
+        <p className="text-blue-600 text-sm font-semibold tracking-widest mb-3">
           Características
         </p>
         <h2 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">
@@ -625,7 +625,7 @@ export default function LandingPage() {
         className="w-full px-8 md:px-20 py-24 bg-gradient-to-r from-blue-100 to-indigo-200"
       >
         <div className="w-12 h-0.5 bg-blue-600 mb-5"></div>
-        <p className="text-blue-600 text-sm font-semibold uppercase tracking-widest mb-3">
+        <p className="text-blue-600 text-sm font-semibold tracking-widest mb-3">
           Roles
         </p>
         <h2 className="text-4xl font-extrabold text-gray-900 mb-14 tracking-tight">
@@ -640,7 +640,7 @@ export default function LandingPage() {
               className={`bg-white border border-gray-200 rounded-2xl p-8 transition-all hover:-translate-y-1 hover:shadow-lg ${r.hover}`}
             >
               <span
-                className={`inline-block text-sm font-semibold px-4 py-1.5 rounded-full mb-5 uppercase tracking-wide ${r.badgeClass}`}
+                className={`inline-block text-sm font-semibold px-4 py-1.5 rounded-full mb-5 tracking-wide ${r.badgeClass}`}
               >
                 {r.badge}
               </span>

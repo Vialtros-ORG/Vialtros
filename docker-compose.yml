@@ -59,6 +59,7 @@ services:
         REACT_APP_GOOGLE_MAPS_MAP_ID: ${REACT_APP_GOOGLE_MAPS_MAP_ID:-}
         REACT_APP_GOOGLE_ROUTES_API_KEY: ${REACT_APP_GOOGLE_ROUTES_API_KEY:-}
         REACT_APP_MAPBOX_TOKEN: ${REACT_APP_MAPBOX_TOKEN:-}
+        REACT_APP_ROUTING_API_URL: ${REACT_APP_ROUTING_API_URL:-}
     container_name: vialtros-frontend
     restart: unless-stopped
     ports:

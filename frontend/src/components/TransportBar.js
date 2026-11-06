@@ -44,7 +44,7 @@ export default function TransportBar({ value = "car", onChange = () => {}, varia
     return (
       <div className="inline-flex items-center bg-white border border-slate-100 rounded-md px-3 py-2 shadow-sm text-xs text-slate-700">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wide text-slate-400">Modo</span>
+          <span className="text-[10px] tracking-wide text-slate-400">Modo</span>
           <span className="inline-flex items-center gap-2 font-medium text-sm text-slate-800">
             <span className="w-5 h-5 text-slate-700" aria-hidden>
               <Icon type={selected.key} />
