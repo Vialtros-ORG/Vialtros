@@ -3,10 +3,13 @@ from channels.testing import WebsocketCommunicator
 from core.asgi import application
 from django.test import TransactionTestCase
 from django.test import override_settings
+from django.core.management import call_command, CommandError
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
+from io import StringIO
+from unittest.mock import patch
 
 from .models import Driver, Passenger, Route, Tracking, User
 from .serializers import (
@@ -789,3 +792,63 @@ class CoordinateInputAcceptanceTests(APITestCase):
         self.assertIn('latitude', invalid_latitude.errors)
         self.assertFalse(invalid_speed.is_valid())
         self.assertIn('speed_kmh', invalid_speed.errors)
+
+
+class CreateAdminCommandTests(APITestCase):
+    password = 'Unique-Vialtros-Admin!2026'
+
+    def test_creates_superuser_without_printing_password(self):
+        output = StringIO()
+        with patch.dict('os.environ', {'VIALTROS_ADMIN_PASSWORD': self.password}):
+            call_command('create_admin', username='secure_admin', stdout=output)
+
+        admin = User.objects.get(username='secure_admin')
+        self.assertTrue(admin.is_superuser)
+        self.assertTrue(admin.check_password(self.password))
+        self.assertNotIn(self.password, output.getvalue())
+
+    def test_invalid_username_is_rejected(self):
+        with self.assertRaises(CommandError):
+            call_command('create_admin', username='bad name')
+
+    def test_admin_creation_requires_password_in_noninteractive_runs(self):
+        fake_stdin = StringIO()
+        fake_stdin.isatty = lambda: False
+        with patch.dict('os.environ', {'VIALTROS_ADMIN_PASSWORD': ''}), patch(
+            'users.management.commands.create_admin.sys.stdin', fake_stdin
+        ):
+            with self.assertRaises(CommandError):
+                call_command('create_admin', username='secure_admin')
+
+    def test_existing_superuser_is_not_changed(self):
+        existing = User.objects.create_superuser(
+            username='admin', password=self.password
+        )
+        output = StringIO()
+        call_command('create_admin', username='another_admin', stdout=output)
+
+        self.assertIn(existing.username, output.getvalue())
+        self.assertFalse(User.objects.filter(username='another_admin').exists())
+
+    def test_admin_role_without_superuser_privileges_is_rejected(self):
+        User.objects.create_user(
+            username='unsafe_admin', password=self.password, role='admin'
+        )
+        with self.assertRaises(CommandError):
+            call_command('create_admin', username='another_admin')
+
+    def test_invalid_password_is_rejected(self):
+        with patch.dict('os.environ', {'VIALTROS_ADMIN_PASSWORD': 'short'}):
+            with self.assertRaises(CommandError):
+                call_command('create_admin', username='secure_admin')
+
+    def test_email_is_validated_and_unique(self):
+        with patch.dict('os.environ', {'VIALTROS_ADMIN_PASSWORD': self.password}):
+            with self.assertRaises(CommandError):
+                call_command('create_admin', username='secure_admin', email='not-email')
+
+            User.objects.create_user(
+                username='existing_user', email='admin@example.com', password=self.password
+            )
+            with self.assertRaises(CommandError):
+                call_command('create_admin', username='secure_admin', email='ADMIN@example.com')

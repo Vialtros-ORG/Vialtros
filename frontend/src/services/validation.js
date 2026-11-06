@@ -1,6 +1,5 @@
 const PERSON_NAME_TOKEN_PATTERN = /^\p{L}+$/u;
 const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,29}$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const E164_PATTERN = /^\+[1-9]\d{7,14}$/;
 
 export function normalizeWhitespace(value) {
@@ -36,7 +35,22 @@ export function normalizeEmail(value) {
 
 export function isValidEmail(value) {
   const email = normalizeEmail(value);
-  return !email || (email.length <= 254 && EMAIL_PATTERN.test(email));
+  if (!email) return true;
+  if (email.length > 254 || /\s/.test(email)) return false;
+
+  const separator = email.indexOf("@");
+  if (separator <= 0 || separator !== email.lastIndexOf("@")) return false;
+
+  const localPart = email.slice(0, separator);
+  const domainLabels = email.slice(separator + 1).split(".");
+  return (
+    !localPart.startsWith(".") &&
+    !localPart.endsWith(".") &&
+    !localPart.includes("..") &&
+    domainLabels.length >= 2 &&
+    domainLabels.every(Boolean) &&
+    domainLabels.at(-1).length >= 2
+  );
 }
 
 export function normalizePhone(value) {

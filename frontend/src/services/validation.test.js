@@ -1,5 +1,6 @@
 import {
   isValidPersonName,
+  isValidEmail,
   isValidPhone,
   isValidUsername,
   normalizePersonName,
@@ -27,5 +28,13 @@ describe("input validation", () => {
     expect(isValidUsername("conductor.01")).toBe(true);
     expect(isValidUsername("ab")).toBe(false);
     expect(isValidUsername("Conductor")).toBe(true);
+  });
+
+  test("validates email shape without a backtracking expression", () => {
+    expect(isValidEmail("Estefani@Example.co")).toBe(true);
+    expect(isValidEmail("ana..perez@example.co")).toBe(false);
+    expect(isValidEmail("ana@example..co")).toBe(false);
+    expect(isValidEmail("ana @example.co")).toBe(false);
+    expect(isValidEmail("ana@example.c")).toBe(false);
   });
 });
