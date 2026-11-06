@@ -822,7 +822,7 @@ class CreateAdminCommandTests(APITestCase):
 
     def test_existing_superuser_is_not_changed(self):
         existing = User.objects.create_superuser(
-            username='admin', password=self.password
+            username='admin', password=self.password, role='admin'
         )
         output = StringIO()
         call_command('create_admin', username='another_admin', stdout=output)
