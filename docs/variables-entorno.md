@@ -1,148 +1,122 @@
-# Task #13 — Variables de entorno
+# Variables de entorno
 
-## Objetivo
+Vialtros tiene dos configuraciones de entorno distintas:
 
-Centralizar la configuración del backend y del frontend mediante variables de entorno, con plantillas versionadas para facilitar la configuración local y de despliegue sin incluir secretos reales en el repositorio.
+1. **Docker Compose:** lee el archivo `.env` en la raíz y entrega al backend y
+   al build del frontend solo las variables declaradas en `docker-compose.yml`.
+2. **Desarrollo manual:** Django carga `backend/.env`; Create React App carga
+   `frontend/.env` durante `npm start` o `npm run build`.
 
-## Alcance
+Las plantillas versionadas son [.env.example](../.env.example),
+[backend/.env.example](../backend/.env.example) y
+[frontend/.env.example](../frontend/.env.example). Copia la plantilla
+correspondiente, completa valores locales y no subas archivos `.env` reales.
 
-- Plantillas de configuración: `backend/.env.example` y `frontend/.env.example`.
-- Carga de variables del backend mediante `python-dotenv` desde `backend/core/settings.py`.
-- Protección de archivos locales `.env` y `.env.*` mediante `.gitignore`; `.env.example` se mantiene versionado como excepción.
-- Documentación de nombres, propósitos y consideraciones sobre datos sensibles.
+## Docker Compose
 
-## Protección de secretos
+Desde la raíz, crea `.env`:
 
-Los archivos `.env` y `.env.*` están ignorados por Git. `.env.example` es la plantilla versionada y no debe contener contraseñas, tokens, claves API ni otros secretos reales. Los valores reales se configuran solo en archivos `.env` locales o en el entorno de despliegue.
+```powershell
+Copy-Item .env.example .env
+```
 
-En `backend/.env.example`, estas variables sensibles permanecen vacías:
+En Linux/macOS:
 
-- `DB_PASSWORD`
-- `EMAIL_HOST_PASSWORD`
-- `TRACKING_INGEST_TOKEN`
+```bash
+cp .env.example .env
+```
 
-`DJANGO_SECRET_KEY` usa el valor de desarrollo no apto para producción `dev-only-placeholder-change-me`. No es una clave real y debe sustituirse por un secreto propio en cada entorno.
+### Base de datos y backend
 
-Las claves de servicios que se usan en el frontend se entregan al navegador; deben configurarse sin publicar credenciales privadas y restringirse según las opciones del proveedor.
+| Variable | Requerida | Descripción |
+| --- | --- | --- |
+| `POSTGRES_DB` | Sí | Nombre de la base PostgreSQL. |
+| `POSTGRES_USER` | Sí | Usuario de la base PostgreSQL. |
+| `POSTGRES_PASSWORD` | Sí | Contraseña de la base; el backend recibe el mismo valor. |
+| `DJANGO_SECRET_KEY` | Sí | Secreto de Django. Debe ser privado y único para cada entorno. |
+| `DJANGO_DEBUG` | Sí | `True` habilita debug; para ambientes expuestos se debe desactivar. |
+| `DJANGO_ALLOWED_HOSTS` | Sí | Hosts aceptados por Django, separados por comas. |
+| `FRONTEND_URL` | No | Origen usado para construir enlaces de restablecimiento; predeterminado `http://localhost:3000`. |
+| `CORS_ALLOWED_ORIGINS` | No | Orígenes HTTP separados por comas; valor predeterminado `http://localhost:3000`. |
 
-## Variables del backend
+Compose configura internamente la conexión del backend a PostgreSQL:
+`DB_ENGINE=django.db.backends.postgresql`, `DB_NAME`, `DB_USER`,
+`DB_PASSWORD`, `DB_HOST=db`, `DB_PORT=5432` y `DB_SSLMODE=disable`.
+No necesitas declararlas manualmente en el `.env` de raíz.
 
-La plantilla está en `backend/.env.example`. Django carga su configuración de entorno con `python-dotenv` desde `core/settings.py`.
+### Frontend compilado por Compose
 
-| Variable | Propósito |
+| Variable | Predeterminado | Descripción |
+| --- | --- | --- |
+| `REACT_APP_API_URL` | `http://localhost:8000/api` | URL base de la API a la que se conecta el navegador. |
+| `REACT_APP_WS_URL` | `ws://localhost:8000/ws` | URL base de los WebSockets. |
+| `REACT_APP_GOOGLE_MAPS_API_KEY` | Vacío | Clave de navegador de Google Maps JavaScript API. |
+| `REACT_APP_GOOGLE_MAPS_MAP_ID` | Vacío | Map ID opcional de Google Maps. |
+| `REACT_APP_GOOGLE_ROUTES_API_KEY` | Vacío | Clave para Google Routes API; si no se define, el frontend puede reutilizar la clave de Maps. |
+| `REACT_APP_MAPBOX_TOKEN` | Vacío | Token opcional para mapas Mapbox. |
+
+Las variables de esta tabla se pasan como argumentos al build del frontend. Si
+se modifican, reconstruye la imagen:
+
+```bash
+docker compose up --build -d frontend
+```
+
+## Desarrollo manual
+
+### Backend: `backend/.env`
+
+Django carga este archivo desde `backend/core/settings.py`. Si no se definen
+`DB_ENGINE` ni `DB_HOST`, Django usa SQLite en `backend/db.sqlite3`.
+
+| Variable | Uso |
 | --- | --- |
-| `DJANGO_SECRET_KEY` | Clave de seguridad de Django. **Sensible.** |
-| `DJANGO_DEBUG` | Activa o desactiva el modo de depuración. |
-| `DJANGO_ALLOWED_HOSTS` | Hosts permitidos por Django, separados por comas. |
-| `DB_ENGINE` | Motor de base de datos de Django. |
-| `DB_NAME` | Nombre de la base de datos. |
-| `DB_USER` | Usuario de la base de datos. |
-| `DB_PASSWORD` | Contraseña de la base de datos. **Sensible.** |
-| `DB_HOST` | Host de la base de datos. |
-| `DB_PORT` | Puerto de la base de datos. |
-| `EMAIL_HOST` | Servidor SMTP. |
-| `EMAIL_PORT` | Puerto SMTP. |
-| `EMAIL_HOST_USER` | Usuario de correo SMTP. |
-| `EMAIL_HOST_PASSWORD` | Contraseña de correo SMTP. **Sensible.** |
-| `FRONTEND_URL` | URL base del frontend. |
-| `TRACKING_INGEST_TOKEN` | Token para autenticar la ingesta de tracking. **Sensible.** |
-| `REDIS_URL` | URL de conexión a Redis para Channels. |
-| `DJANGO_SECURE_SSL_REDIRECT` | Controla la redirección forzada a HTTPS. |
-| `CORS_ALLOWED_ORIGINS` | Orígenes CORS permitidos, separados por comas. |
+| `DJANGO_SECRET_KEY` | Secreto criptográfico de Django. |
+| `DJANGO_DEBUG` | Modo de depuración; Django activa debug solo con el texto `True`. |
+| `DJANGO_ALLOWED_HOSTS` | Hosts permitidos separados por comas. |
+| `DB_ENGINE` | Motor de Django; PostgreSQL usa `django.db.backends.postgresql`. |
+| `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | Credenciales y host de la base de datos. |
+| `DB_SSLMODE` | Modo SSL de la conexión PostgreSQL; el valor por defecto del backend es `require`. |
+| `CORS_ALLOWED_ORIGINS` | Orígenes permitidos cuando `DJANGO_DEBUG` es `False`. |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | Configuración opcional SMTP; la contraseña es sensible. |
+| `FRONTEND_URL` | Origen usado para construir enlaces de restablecimiento de contraseña. |
+| `TRACKING_INGEST_TOKEN` | Token opcional de ingesta de tracking; sensible. |
+| `REDIS_URL` | URL de Redis opcional para Channels; si está vacía se utiliza la capa en memoria. |
+| `DJANGO_SECURE_SSL_REDIRECT` | Controla el redireccionamiento HTTPS cuando la configuración de producción lo permite. |
 
-## Variables del frontend
+Para conectarte a PostgreSQL desde una ejecución manual, configura todas las
+variables `DB_*` y un servidor PostgreSQL accesible. La plantilla incluye
+ejemplos comentados; no son credenciales funcionales.
 
-La plantilla está en `frontend/.env.example`. Create React App expone al código del navegador las variables con prefijo `REACT_APP_`.
+### Frontend: `frontend/.env`
 
-| Variable | Propósito |
+Create React App lee estas variables durante la ejecución local y el build.
+Las variables con prefijo `REACT_APP_` se exponen al código descargado por el
+navegador.
+
+| Variable | Uso |
 | --- | --- |
-| `REACT_APP_API_URL` | URL base de la API del backend. |
-| `REACT_APP_WS_URL` | URL base de WebSocket; se deriva de la URL de API si no se define. |
-| `REACT_APP_GOOGLE_MAPS_API_KEY` | Clave para Google Maps JavaScript API. |
-| `REACT_APP_GOOGLE_MAPS_MAP_ID` | Map ID para mapas vectoriales de Google Maps. |
-| `REACT_APP_GOOGLE_ROUTES_API_KEY` | Clave para Google Routes API; puede usar la clave de Maps como alternativa. |
-| `REACT_APP_MAPBOX_TOKEN` | Token opcional para mapas vectoriales de Mapbox; CartoDB se usa como alternativa. |
+| `REACT_APP_API_URL` | URL base del API; plantilla: `http://localhost:8000/api`. |
+| `REACT_APP_WS_URL` | URL WebSocket; plantilla: `ws://localhost:8000/ws`. |
+| `REACT_APP_GOOGLE_MAPS_API_KEY` | Clave de Maps JavaScript API. |
+| `REACT_APP_GOOGLE_MAPS_MAP_ID` | Map ID opcional para funciones de mapas vectoriales. |
+| `REACT_APP_GOOGLE_ROUTES_API_KEY` | Clave de Google Routes API; puede reutilizar la clave Maps. |
+| `REACT_APP_MAPBOX_TOKEN` | Token opcional de Mapbox; el mapa de tracking tiene estilo CartoDB alternativo. |
 
-## Comportamiento de la plantilla del backend
+Las claves cliente no deben tratarse como secretos de servidor. Restringe las
+claves de Maps y Mapbox por dominio y API en sus consolas. Consulta
+[Mapas y rutas](mapas.md) para los servicios usados y su configuración.
 
-En `backend/.env.example`, todas las variables `DB_*` están comentadas. Si no se definen esas variables, SQLite es la base de datos local predeterminada. PostgreSQL/Neon es opcional: para usarlo hay que descomentar las variables `DB_*` necesarias y configurarlas con valores específicos del entorno. La plantilla no incluye credenciales, contraseñas, tokens ni secretos de producción reales.
+## Seguridad y resolución de problemas
 
-`CORS_ALLOWED_ORIGINS` tiene una sola declaración de ejemplo y está comentada. Los campos sensibles de correo (`EMAIL_HOST_PASSWORD`) y tracking (`TRACKING_INGEST_TOKEN`) permanecen vacíos.
-
-## Validaciones ejecutadas
-
-Los siguientes son resultados observados al validar la configuración local; no son resultados meramente esperados.
-
-### 1. Django system check
-
-Ejecutado desde `backend/`:
-
-```powershell
-python manage.py check
-```
-
-Resultado:
-
-```text
-System check identified no issues (0 silenced).
-```
-
-### 2. Database engine and path
-
-Ejecutado desde `backend/`:
-
-```powershell
-python manage.py shell -c "from django.conf import settings; print(settings.DATABASES['default']['ENGINE']); print(settings.DATABASES['default']['NAME'])"
-```
-
-Resultado:
-
-```text
-django.db.backends.sqlite3
-C:\Users\LUAN\Desktop\proyecto\Vialtros\backend\db.sqlite3
-```
-
-Esto confirma que, al no estar configuradas las variables `DB_*`, Django seleccionó SQLite y la base local `db.sqlite3`.
-
-### 3. Local HTTP server
-
-El servidor de desarrollo se inició desde `backend/` con:
-
-```powershell
-python manage.py runserver
-```
-
-Se inició en `http://127.0.0.1:8000/`. La solicitud HTTP ejecutada fue:
-
-```powershell
-curl.exe -i http://127.0.0.1:8000/
-```
-
-Respuesta relevante:
-
-```text
-HTTP/1.1 302 Found
-Content-Type: text/html; charset=utf-8
-Location: /admin/
-Server: daphne
-```
-
-El estado HTTP 302 confirma que el servidor local Django/Daphne respondió y redirigió `/` a `/admin/`; no fue una respuesta HTTP 200.
-
-## Limpieza del `.env` temporal
-
-Se usó `backend/.env` como copia local temporal de `backend/.env.example` para la validación. Un archivo `.env` no debe añadirse al repositorio. Si ya existe un `.env` perteneciente al usuario, no se debe eliminar a ciegas; solo debe retirarse un archivo temporal creado específicamente para esta validación.
-
-Después de la limpieza, se ejecutó:
-
-```powershell
-Test-Path backend\.env
-```
-
-Resultado:
-
-```text
-False
-```
-
-Esto confirma que no quedó un `.env` temporal en `backend/`.
+- Los `.env` reales no deben versionarse, compartirse en tickets ni incluirse
+  en capturas o logs.
+- Los valores `change_me` y `dev-only-placeholder-change-me` son ejemplos de
+  desarrollo, no secretos adecuados para despliegue.
+- No pongas contraseñas, tokens privados ni `DJANGO_SECRET_KEY` en variables
+  `REACT_APP_*`; se incorporan al bundle del navegador.
+- En Compose, las variables requeridas para PostgreSQL y Django deben existir
+  en `.env` o en el entorno del proceso. Comprueba los valores interpolados con
+  `docker compose config` sin publicar su salida si contiene credenciales.
+- Cambiar una variable de frontend no modifica una imagen ya construida: vuelve
+  a compilar el servicio frontend.

@@ -1,53 +1,15 @@
-# Configuraciones de Servidor
+# Configuración de servidor heredada
 
-Este directorio contiene los archivos de configuración necesarios para desplegar Vialtros en Apache.
+Este directorio conserva plantillas de Apache y systemd de un despliegue
+anterior. No forman parte del entorno local recomendado y contienen rutas,
+usuarios y valores que deben revisarse y sustituirse antes de usarlos.
 
-## Contenido
+- `apache2/vialtros.conf` configura el proxy y el frontend estático para una
+  ruta de servidor específica.
+- `systemd/vialtros-django.service` inicia Daphne como servicio ASGI.
 
-### Apache (apache2/)
-
-- **vialtros.conf**: Virtual host de Apache que configura:
-  - Proxy inverso para Django (Gunicorn en puerto 8000)
-  - Servir React build como frontend
-  - WebSocket para tracking en tiempo real
-  - Headers de seguridad
-  - Caché para archivos estáticos
-
-### Systemd (systemd/)
-
-- **vialtros-django.service**: Service para ejecutar Django/Gunicorn como daemon:
-  - Inicia automáticamente al arrancar el servidor
-  - Reinicia automáticamente si hay fallos
-  - Logs en journalctl
-
-## Cómo usar
-
-### 1. Instalar Virtual Host de Apache
-
-```bash
-sudo cp etc/apache2/vialtros.conf /etc/apache2/sites-available/
-sudo a2ensite vialtros.conf
-sudo apache2ctl configtest
-sudo systemctl restart apache2
-```
-
-### 2. Instalar Systemd Service
-
-```bash
-sudo cp etc/systemd/vialtros-django.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable vialtros-django.service
-sudo systemctl start vialtros-django.service
-```
-
-### 3. Verificar que todo funciona
-
-```bash
-sudo systemctl status vialtros-django.service
-sudo systemctl status apache2
-sudo journalctl -u vialtros-django.service -f
-```
-
-## Para más información
-
-Ver: `GUIA_DESPLIEGUE_APACHE.txt` en la raíz del proyecto
+No copies estos archivos directamente a un servidor de producción. Revisa
+dominios, TLS, rutas, permisos, proxy WebSocket, variables, CORS y estrategia de
+persistencia para el entorno de destino. Consulta
+[Despliegue](../docs/despliegue.md) para conocer el alcance de los workflows
+disponibles y sus limitaciones.

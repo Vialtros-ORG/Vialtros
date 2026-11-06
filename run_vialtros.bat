@@ -1,6 +1,6 @@
 @echo off
 rem Script para iniciar backend (Django/Daphne) y frontend (React) en ventanas separadas.
-rem Requiere: Python 3.10+, Node.js 18+
+rem Requiere: Python 3.11+ y Node.js 20+ (Docker Compose es la opcion recomendada).
 
 cd /d "%~dp0"
 
@@ -40,8 +40,10 @@ echo Backend:  http://localhost:8000
 echo Frontend: http://localhost:3000
 echo ============================================
 echo.
-echo Credenciales por defecto:
-echo   Usuario: admin
-echo   Contraseña: admin123
+echo No hay una cuenta administradora preconfigurada.
+echo Crea un superusuario Django: cd backend ^&^& python manage.py createsuperuser
+echo Luego abre http://localhost:8000/admin/ y edita esa cuenta en Users.
+echo En Informacion adicional, cambia Role a Admin y guarda.
+echo Inicia sesion de nuevo en Vialtros para actualizar el rol.
 echo.
 pause

@@ -9,11 +9,11 @@ Vialtros analiza el backend Django, el frontend React y los workflows de GitHub 
 3. En GitHub, abre **Settings > Secrets and variables > Actions** y agrega el secret `SONAR_TOKEN` con el token generado en SonarCloud. El workflow ya apunta a `https://sonarcloud.io`; no requiere una variable `SONAR_HOST_URL`.
 4. Integra las ramas de trabajo mediante Pull Request a `Develop`; después de promover los cambios, `master` ejecuta un análisis de rama. Para un análisis manual, selecciona la rama que quieras analizar en **Actions > SonarQube > Run workflow**.
 
-El workflow analiza Pull Requests a `Develop` y cambios que lleguen a `master`, y espera el resultado del Quality Gate.
+El workflow analiza todas las Pull Requests, sin importar la rama destino ni las rutas modificadas, y los cambios que lleguen a `master`. En ambos casos espera el resultado del Quality Gate. La integración de SonarCloud con GitHub debe estar configurada para el repositorio para que el bot publique el resumen del Quality Gate en la conversación de la PR.
 
 ## Ramas y Pull Requests
 
-SonarCloud admite análisis de Pull Requests y ramas: `Develop` es la rama principal del análisis y `master` se analiza como una segunda rama.
+SonarCloud admite análisis de Pull Requests y ramas. `Develop` es la rama principal del análisis y `master` se analiza como una segunda rama. El workflow se inicia para toda PR; el análisis y la decoración requieren que la rama base exista en SonarCloud y que el proyecto esté vinculado al repositorio correcto en la organización `vialtros-org`.
 
 ## Alcance
 

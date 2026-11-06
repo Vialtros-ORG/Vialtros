@@ -1,212 +1,213 @@
-# Vialtros — Plataforma SaaS de Gestión de Rutas
+<p align="center">
+  <img src="docs/assets/vialtros-logo.svg" alt="Vialtros" width="360" />
+</p>
 
-**Versión:** 1.0-beta | **Última actualización:** 21 de mayo de 2026
+<h1 align="center">Vialtros</h1>
 
-> Plataforma moderna de gestión de rutas con seguimiento GPS en tiempo real, roles diferenciados y panel administrativo profesional.
+<p align="center">
+  <strong>Gestión de rutas y seguimiento GPS en tiempo real.</strong>
+</p>
 
-## Integrantes
+<p align="center">
+  <img alt="Django" src="https://img.shields.io/badge/Django-API%20REST-092E20?logo=django&logoColor=white" />
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" />
+  <img alt="PostgreSQL 16" src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" />
+  <img alt="Docker Compose" src="https://img.shields.io/badge/Docker%20Compose-local%20stack-2496ED?logo=docker&logoColor=white" />
+</p>
 
--  MARQUEZ YANCES JOHAN PATRICK
--  COMETA ALOMIA FRANCY ESTEFANI
--  LURDUY PEREA LUIS ANGEL
--  GOMEZ CAMARGO ANA SOFIA
-
-## Enlaces útiles
-
--  **Repositorio:** [Github Vialtros](https://github.com/Axwyk/Vialtros)
--  **Trello:** [Vialtros board](https://trello.com/b/Uu3eBPav/vialtros)
--  **Reuniones:** Miércoles, Jueves y Domingo — 12:00 pm
--  **Meet:** [meet.google.com/yfp-zmkq-buk](https://meet.google.com/yfp-zmkq-buk)
-
-Plataforma SaaS de gestión de rutas con seguimiento GPS en tiempo real, roles diferenciados y panel administrativo profesional.
-
-**Características principales:**
-
-- ✓ Autenticación JWT con roles (Admin, Driver, User)
-- ✓ Dashboard SaaS con estadísticas y gráficos
-- ✓ WebSocket para tracking en tiempo real
-- ✓ CRUD completo de usuarios, conductores y rutas
-- ✓ Interfaz moderna con Tailwind CSS y diseño split-screen
-- ✓ Iconografía SVG profesional (sin dependencias externas)
-
-## Estado actual
-
-**V1 con funcionalidades core completadas.** El proyecto incluye:
--  Autenticación JWT con roles (Admin, Driver, User)
--  Backend con API REST y WebSockets en tiempo real
--  Frontend SaaS moderno con React 19 y Tailwind CSS
--  Panel administrativo completo (CRUD de usuarios, conductores, rutas)
--  CI/CD Pipeline (GitHub Actions + Deploy automático)
--  Sistema de notificaciones (en desarrollo)
--  Mejoras en mapas y tracking (en progreso)
-
-Ver [**estado_proyecto.txt**](estado_proyecto.txt) para detalles completos de funcionalidades implementadas, pendientes y bugs resueltos.
-
-##  Inicio rápido
-
-### Windows (recomendado)
-
-Desde la raíz del proyecto, ejecuta el script de arranque:
-
-```powershell
-.\run_vialtros.bat
-```
-
-Esto inicia automáticamente:
-- **Backend:** http://localhost:8000
-- **Frontend:** http://localhost:3000
-
-### Credenciales de acceso
-
-```
-Usuario: admin
-Contraseña: admin123
-```
-
-### Instalación manual (desarrollo)
-
-Ver [**docs/despliegue.md**](docs/despliegue.md) para instalación paso a paso.
-
-
-
-
-##  Stack Tecnológico
-
-| Capa | Tecnología |
-| --- | --- |
-| **Backend** | Django 4+ · Django REST Framework · Channels · daphne |
-| **Frontend** | React 19 · Tailwind CSS · React Router v7 · Lucide Icons |
-| **Base de Datos** | SQLite (desarrollo) / PostgreSQL (producción) |
-| **Real-time** | Django Channels + Redis (opcional) |
-| **Autenticación** | SimpleJWT · Permisos por rol |
-| **DevOps** | GitHub Actions · SSH Deploy |
-
-##  Roles y Permisos
-
-| Rol | Permisos | Acceso |
-| --- | --- | --- |
-| **Admin** | CRUD completo (usuarios/conductores/rutas) | `/admin/*` |
-| **Driver** | Ver rutas asignadas, marcar pasajeros recogidos | `/driver/routes` |
-| **User** (Pasajero) | Visualizar ubicación en tiempo real | `/user/route` |
-
-##  Estructura del Proyecto
-
-```text
-Vialtros/
-├── backend/
-│   ├── core/              # Configuración (settings, urls, asgi, cors)
-│   ├── users/             # Modelos, serializers, viewsets (incluye rutas)
-│   ├── tracking/          # Consumers WebSocket, modelo Tracking
-│   ├── .venv/             # Entorno virtual Python
-│   ├── db.sqlite3         # Base de datos (desarrollo)
-│   ├── manage.py
-│   ├── requirements.txt   # Dependencias Python
-│   └── start_backend.bat  # Script arranque backend
-│
-├── frontend/ (Limpio de archivos de Django huérfanos)
-│   ├── public/            # HTML estático, favicon
-│   ├── build/             # Output compilado (React build)
-│   ├── src/
-│   │   ├── pages/         # LoginPage, DashboardPage, AdminPages
-│   │   ├── components/    # Logo, Modal, Navbar, Sidebar, etc.
-│   │   └── services/      # api.js, auth.js, admin.js, ws.js
-│   ├── node_modules/      # Dependencias npm
-│   ├── package.json       # Dependencias JavaScript
-│   └── tailwind.config.js # Config Tailwind CSS
-│
-├── .github/
-│   └── workflows/         # CI/CD (GitHub Actions)
-│       └── backend.yml    # Deploy automático backend
-│
-├── docs/                  # 📖 Documentación técnica
-│   ├── README.md          # Índice de documentación
-│   ├── arquitectura.md    # Stack, diagrama, seguridad
-│   ├── modelos.md         # BD, serializers, permisos
-│   ├── api.md             # Referencia de endpoints
-│   ├── frontend.md        # Páginas, componentes, env
-│   └── despliegue.md      # Instalación, producción, CI/CD
-│
-├── estado_proyecto.txt    # Checklist de features
-├── README.md              # Este archivo
-├── package.json           # Dependencias proyecto (npm)
-└── run_vialtros.bat       # Script arranque rápido
-```
-
-## Requisitos
-
-- **Python** 3.10+ (backend)
-- **Node.js** 18+ (frontend)
-- **PostgreSQL** (recomendado para producción)
-- **Git** (para clonar repositorio)
-
-## Documentación
-
-Para guías detalladas, consulta la carpeta [**docs/**](docs/):
-
-- [**arquitectura.md**](docs/arquitectura.md) — Stack, diagrama del sistema, flujo de autenticación
-- [**modelos.md**](docs/modelos.md) — Modelos de BD, serializers, permisos
-- [**api.md**](docs/api.md) — Referencia completa de endpoints (REST y WebSocket)
-- [**frontend.md**](docs/frontend.md) — Páginas, componentes, variables de entorno
-- [**despliegue.md**](docs/despliegue.md) — Instalación, configuración de desarrollo/producción, CI/CD
-
-##  Seguridad
-
--  Autenticación JWT con refresh token
--  CORS configurado
--  Validación de permisos por rol en backend
--  Passwords hasheados (bcrypt via Django)
--  **Producción:** Cambiar `SECRET_KEY`, activar HTTPS, usar PostgreSQL
-
-##  Reportar Bugs
-
-En [estado_proyecto.txt](estado_proyecto.txt) encontrarás el histórico de bugs resueltos.
-
-Para reportar nuevos issues, crea un [issue en GitHub](https://github.com/Axwyk/Vialtros/issues).
-
-##  Licencia
-
-Proyecto privado — contacta al equipo para más información.
-
-##  Equipo
-
-Equipo de desarrollo de Vialtros. Reuniones: Miércoles, Jueves y Domingo a las 12:00 pm.
+<p align="center">
+  <a href="#inicio-rápido">Inicio rápido</a> ·
+  <a href="#arquitectura">Arquitectura</a> ·
+  <a href="#configuración">Configuración</a> ·
+  <a href="#pruebas">Pruebas</a> ·
+  <a href="#documentación">Documentación</a> ·
+  <a href="#contribuir">Contribuir</a>
+</p>
 
 ---
 
-**¿Necesitas ayuda?** Ver [docs/despliegue.md](docs/despliegue.md) o contacta al equipo en Slack.
+Vialtros conecta la operación de rutas con una aplicación web para administración,
+conductores y pasajeros. El frontend React consume una API REST y canales
+WebSocket del backend Django; PostgreSQL conserva los datos en el entorno Docker
+Compose.
 
-### Backend (desarrollo)
+## Inicio rápido
+
+### Requisitos
+
+- Git.
+- Docker Desktop en Windows/macOS, o Docker Engine con Docker Compose v2 en Linux.
+- Puertos locales `3000`, `5432` y `8000` disponibles.
+
+No necesitas instalar Python, Node.js ni PostgreSQL en el host para ejecutar el
+stack con Docker Compose.
+
+### Instalar y ejecutar
+
+Clona el repositorio y crea el archivo local de variables de entorno:
 
 ```bash
-cd backend
-python -m venv .venv
-.\.venv\Scripts\activate         # Windows
-# source .venv/bin/activate      # Linux/Mac
-
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver
+git clone https://github.com/Vialtros-ORG/Vialtros.git
+cd Vialtros
+cp .env.example .env
 ```
 
-### Frontend (desarrollo)
+En Windows PowerShell, usa `Copy-Item .env.example .env` en lugar de `cp`.
+Edita `.env` y reemplaza los valores de ejemplo, en especial
+`POSTGRES_PASSWORD` y `DJANGO_SECRET_KEY`. No compartas ni subas ese archivo.
+
+Construye las imágenes e inicia los servicios:
 
 ```bash
-cd frontend
-npm install
-npm start                       # http://localhost:3000
+docker compose up --build -d
+docker compose ps
 ```
 
-### Datos de prueba
+El backend aplica las migraciones al arrancar. Crea primero un superusuario
+de Django de forma interactiva:
 
-El script `poblar_demo` ya no está incluido en el proyecto. Usa el panel de administración Django o API para crear datos de prueba manualmente.
+```bash
+docker compose exec backend python manage.py createsuperuser
+```
 
-## Documentación Completa
+`createsuperuser` habilita el administrador de Django, pero conserva el rol
+`user` de Vialtros. Para completar la cuenta administradora de la aplicación:
 
-Consulta la carpeta [`docs/`](docs/) para:
+1. Entra en [Admin Django](http://localhost:8000/admin/) con la cuenta creada.
+2. En **Users**, abre esa cuenta y, en **Información adicional**, cambia
+   **Role** a **Admin**. Guarda los cambios.
+3. Inicia sesión en [Vialtros](http://localhost:3000) con esa cuenta. Si ya
+   habías iniciado sesión, sal y vuelve a entrar para actualizar el rol.
 
-- [Arquitectura del sistema](docs/arquitectura.md)
-- [Modelos de datos](docs/modelos.md)
-- [Referencia de API](docs/api.md)
-- [Guía frontend](docs/frontend.md)
-- [Despliegue en producción](docs/despliegue.md)
+El rol `admin` permite acceder a los endpoints administrativos de la API;
+`is_staff` e `is_superuser` por sí solos no conceden ese permiso.
+
+La aplicación **no incluye credenciales de administrador preconfiguradas**.
+
+| Servicio | Puerto del host | Dirección / uso |
+| --- | --- | --- |
+| Frontend React | `3000` | [http://localhost:3000](http://localhost:3000) |
+| API y WebSocket Django | `8000` | API: [http://localhost:8000/api/](http://localhost:8000/api/); Admin: [http://localhost:8000/admin/](http://localhost:8000/admin/) |
+| PostgreSQL | `5432` | Conexiones desde herramientas locales; backend usa `db:5432` dentro de Compose. |
+
+Detén los servicios conservando los datos con `docker compose down`. El volumen
+`postgres_data` persiste entre reinicios. `docker compose down -v` también
+elimina ese volumen y la base de datos local.
+
+## Arquitectura
+
+```mermaid
+flowchart LR
+    Browser[Navegador]
+    Frontend[React SPA<br/>:3000]
+    Backend[Django REST + Channels + Daphne<br/>:8000]
+    Database[(PostgreSQL 16<br/>:5432)]
+    Volume[(Volumen postgres_data)]
+    SQLite[(SQLite<br/>desarrollo manual)]
+    Redis[(Redis externo<br/>opcional)]
+
+    Browser -->|carga interfaz| Frontend
+    Browser -->|REST /api · JWT| Backend
+    Browser <-->|WebSocket /ws| Backend
+    Backend -->|red Compose · db:5432| Database
+    Database --- Volume
+    Backend -.->|sin DB_*| SQLite
+    Backend -.->|si REDIS_URL está configurada| Redis
+```
+
+En Compose se inician `frontend`, `backend` y `db`. Redis no forma parte del
+stack predeterminado; Channels usa la capa en memoria si no se configura
+`REDIS_URL`. SQLite se usa en desarrollo manual cuando no se definen variables
+de conexión PostgreSQL.
+
+## Configuración
+
+Compose carga las variables del archivo `.env` ubicado en la raíz. La plantilla
+versionada es [.env.example](.env.example); la guía completa de variables y los
+dos modos de desarrollo están en [docs/variables-entorno.md](docs/variables-entorno.md).
+
+| Variable | Uso |
+| --- | --- |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Base de datos y usuario PostgreSQL; Compose los comparte con Django. |
+| `DJANGO_SECRET_KEY` | Clave de Django. Usa un secreto propio fuera de pruebas locales. |
+| `DJANGO_DEBUG` | Activa o desactiva el modo debug (`True`/`False`). |
+| `DJANGO_ALLOWED_HOSTS` | Hosts permitidos por Django, separados por comas. |
+| `CORS_ALLOWED_ORIGINS` | Orígenes web autorizados; por defecto `http://localhost:3000`. |
+| `FRONTEND_URL` | URL usada para enlaces de restablecimiento de contraseña; por defecto `http://localhost:3000`. |
+| `REACT_APP_API_URL`, `REACT_APP_WS_URL` | URLs del API y WebSocket compiladas en el frontend. |
+| `REACT_APP_GOOGLE_MAPS_API_KEY`, `REACT_APP_GOOGLE_MAPS_MAP_ID` | Configuración opcional de Google Maps. |
+| `REACT_APP_GOOGLE_ROUTES_API_KEY` | Clave opcional de Google Routes; puede reutilizar la clave de Maps. |
+| `REACT_APP_MAPBOX_TOKEN` | Token opcional para el mapa Mapbox; el mapa de tracking tiene alternativa CartoDB. |
+
+Las variables `REACT_APP_*` se incorporan al JavaScript que recibe el navegador;
+no pongas secretos privados en ellas. Las claves de mapas son visibles para el
+cliente: restrínge su uso por API y dominio en el proveedor. Si cambias una
+variable de frontend en `.env`, reconstruye la imagen con
+`docker compose up --build -d frontend`.
+
+## Pruebas
+
+Con el stack levantado, ejecuta las comprobaciones y la suite del backend:
+
+```bash
+docker compose exec backend python manage.py check
+docker compose exec backend python manage.py test
+```
+
+Las pruebas del frontend se ejecutan desde `frontend/`:
+
+```bash
+npm ci
+npm test -- --watchAll=false --passWithNoTests
+npm run build
+```
+
+El workflow de CI ejecuta además la integración Docker Compose contra
+PostgreSQL, verifica respuestas HTTP y revisa Markdown y enlaces locales.
+Consulta [docs/ci-checks.md](docs/ci-checks.md) para el detalle de cada check.
+
+## Stack tecnológico
+
+| Área | Tecnología |
+| --- | --- |
+| Backend | Python 3.14 en Docker · Django · Django REST Framework · Channels · Daphne |
+| Frontend | React 19 · Create React App (`react-scripts`) · Tailwind CSS · React Router |
+| Persistencia en Compose | PostgreSQL 16 (`postgres:16-alpine`) |
+| Persistencia en desarrollo manual | SQLite por defecto; PostgreSQL configurable |
+| Mapas | Google Maps / Google Routes y Mapbox con alternativas según componente |
+| Calidad e integración | Docker Compose · GitHub Actions |
+
+Las dependencias Python no están fijadas a una versión concreta en
+`backend/requirements.txt`; por ello no se publica aquí una versión exacta de
+Django. Los detalles de componentes y límites están en
+[docs/arquitectura.md](docs/arquitectura.md).
+
+## Documentación
+
+| Guía | Contenido |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Índice de guías técnicas |
+| [docs/arquitectura.md](docs/arquitectura.md) | Componentes, responsabilidades y diagramas Mermaid |
+| [docs/docker-compose.md](docs/docker-compose.md) | Servicios, puertos, configuración y operación del stack |
+| [docs/variables-entorno.md](docs/variables-entorno.md) | Variables para Compose y desarrollo manual |
+| [docs/api.md](docs/api.md) | Endpoints REST y WebSocket |
+| [docs/modelos.md](docs/modelos.md) | Entidades y relaciones de datos |
+| [docs/frontend.md](docs/frontend.md) | Páginas, componentes y servicios del frontend |
+| [docs/mapas.md](docs/mapas.md) | Configuración de Google Maps, Routes y Mapbox |
+| [docs/ci-checks.md](docs/ci-checks.md) | Workflows y validaciones automáticas |
+| [docs/despliegue.md](docs/despliegue.md) | Modos de ejecución y workflows de despliegue disponibles |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Ramas, commits, Pull Requests y revisión |
+
+## Contribuir
+
+El trabajo se integra mediante Pull Request a `Develop`. Crea tu rama desde
+`Develop`, vincula la tarea de Trello y ejecuta las validaciones pertinentes.
+Consulta la [guía para contribuir](CONTRIBUTING.md) para seguir el flujo del
+equipo y la [plantilla del Pull Request](.github/PULL_REQUEST_TEMPLATE.md) para
+preparar la descripción.
+
+## Proyecto y equipo
+
+Vialtros es un proyecto académico de gestión de rutas. Consulta el
+[repositorio en GitHub](https://github.com/Vialtros-ORG/Vialtros) y el
+[tablero de Trello](https://trello.com/b/Uu3eBPav/vialtros).
