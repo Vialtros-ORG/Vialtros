@@ -1,4 +1,4 @@
-# Dependency lock for the SonarCloud coverage job. Keep versions aligned with
+# Pinned dependency set for the SonarCloud coverage job. Keep versions aligned with
 # backend/requirements.txt and update this file through the dependency review.
 asgiref==3.13.0
 attrs==26.1.0

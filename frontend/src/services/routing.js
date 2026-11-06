@@ -276,7 +276,7 @@ function normalizeTrackMatchPoints(points) {
       if (Array.isArray(point) && point.length === 2) {
         const lat = Number(point[0]);
         const lng = Number(point[1]);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        if (!validCoordinatePair([lat, lng])) return null;
         return {
           coords: [lat, lng],
           speedKmh: null,
@@ -569,7 +569,7 @@ export async function getStreetRouteThroughPoints(points, options = {}) {
         if (!Array.isArray(point) || point.length !== 2) return null;
         const lat = Number(point[0]);
         const lng = Number(point[1]);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        if (!validCoordinatePair([lat, lng])) return null;
         return sanitizeBuenaventuraCoords([lat, lng]) || [lat, lng];
       })
       .filter(Boolean),
