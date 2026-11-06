@@ -6,7 +6,7 @@ const FIELD_LABELS = {
   phone: "Teléfono",
   phone_number: "Teléfono",
   license_number: "Licencia",
-  password: "Contraseña",
+  password: "Contraseña", // NOSONAR: nombre de campo de la API, no es una credencial.
   non_field_errors: "Formulario",
   detail: "Solicitud",
 };

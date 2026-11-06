@@ -204,7 +204,8 @@ class UserCreateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """Validar cambios de rol en UPDATE."""
         if self.instance is None and not data.get('password'):
-            raise serializers.ValidationError({'password': 'La contraseña es obligatoria.'})
+            # La clave identifica el campo del serializer; no contiene una contraseña.
+            raise serializers.ValidationError({'password': 'La contraseña es obligatoria.'})  # NOSONAR
 
         # En UPDATE, proteger el único admin
         if self.instance is not None:

@@ -1,4 +1,4 @@
-const PERSON_NAME_PATTERN = /^[\p{L}]+(?:[ '\u2019-][\p{L}]+)*$/u;
+const PERSON_NAME_TOKEN_PATTERN = /^\p{L}+$/u;
 const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,29}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const E164_PATTERN = /^\+[1-9]\d{7,14}$/;
@@ -16,7 +16,10 @@ export function normalizePersonName(value) {
 
 export function isValidPersonName(value) {
   const normalized = normalizePersonName(value);
-  return !normalized || (normalized.length <= 80 && PERSON_NAME_PATTERN.test(normalized));
+  if (!normalized) return true;
+  if (normalized.length > 80) return false;
+  const tokens = normalized.split(/[ '\u2019-]/);
+  return tokens.every((token) => token && PERSON_NAME_TOKEN_PATTERN.test(token));
 }
 
 export function normalizeUsername(value) {

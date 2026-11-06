@@ -12,9 +12,11 @@ import {
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
 // OSRM demo is a fallback for development/student deployments. Production should
 // point this at an owned routing service to control availability and privacy.
-const OSRM_BASE_URL = (
-  process.env.REACT_APP_ROUTING_API_URL || "https://router.project-osrm.org"
-).replace(/\/+$/, "");
+let OSRM_BASE_URL =
+  process.env.REACT_APP_ROUTING_API_URL || "https://router.project-osrm.org";
+while (OSRM_BASE_URL.endsWith("/")) {
+  OSRM_BASE_URL = OSRM_BASE_URL.slice(0, -1);
+}
 const OSRM_TIMEOUT_MS = 12000;
 const OSRM_MAX_COORDINATES = 100;
 const MAX_WAYPOINT_SNAP_DISTANCE_M = 1200;
