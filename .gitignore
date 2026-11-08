@@ -19,8 +19,6 @@ env/
 # Base de datos SQLite (desarrollo)
 db.sqlite3
 *.sqlite3
-*.sqlite
-/backend/vialtros_db
 
 # Archivos de compilación Python
 *.egg-info/
@@ -75,7 +73,8 @@ media/
 *.log
 
 # ── Scripts locales Windows (no subir) ─────────────────────────
-# No agregues scripts de máquina local sin una necesidad compartida.
+# Scripts de arranque y utilidades locales que no deben subirse al repo
+/run_vialtros.bat
 /Start_Server.bat
 /reiniciar_todo.bat
 

@@ -30,3 +30,8 @@ instalación; esta página organiza el detalle técnico sin repetir esos pasos.
 Consulta la [guía de contribución](../CONTRIBUTING.md) para ramas, commits,
 Pull Requests y validación local. Las guías deben mantenerse alineadas con los
 archivos de configuración y workflows del repositorio.
+
+## Archivo histórico
+
+Los documentos antiguos conservados como referencia están en
+[archivo](archivo/README.md); no sustituyen las guías técnicas actuales.
