@@ -44,6 +44,39 @@ capa en memoria, apropiada para desarrollo de una sola instancia.
 | `backend/tracking/` | Consumers y enrutamiento WebSocket para seguimiento en tiempo real. |
 | `db` en Compose | PostgreSQL 16, accesible desde el host por el puerto `5432` y desde backend por `db:5432`. |
 
+## Estructura del repositorio
+
+```text
+.
+├── .github/
+│   ├── scripts/                 # Validaciones auxiliares de CI
+│   └── workflows/               # CI y workflows de despliegue
+├── backend/
+│   ├── core/                    # Configuración, URLs y puntos de entrada Django
+│   ├── tracking/                # WebSocket de seguimiento
+│   ├── users/                   # Usuarios, rutas, permisos y API de dominio
+│   ├── manage.py
+│   └── requirements.txt
+├── docs/                        # Documentación técnica mantenida
+├── etc/                         # Configuración de Apache y systemd
+├── frontend/
+│   ├── public/                  # Recursos estáticos públicos
+│   ├── src/
+│   │   ├── components/
+│   │   ├── context/
+│   │   ├── pages/
+│   │   └── services/
+│   └── package.json
+├── docker-compose.yml           # Stack local completo
+├── CONTRIBUTING.md              # Flujo de contribución
+└── README.md                    # Entrada e inicio rápido
+```
+
+`frontend/build/`, `frontend/node_modules/`, los entornos virtuales y las bases
+SQLite locales son artefactos o datos de desarrollo; no forman parte del árbol
+versionado. La documentación se mantiene en `docs/`; los README de `backend/`
+y `frontend/` sirven como accesos breves a las guías centrales.
+
 ### Capas del frontend
 
 ```mermaid

@@ -19,6 +19,8 @@ env/
 # Base de datos SQLite (desarrollo)
 db.sqlite3
 *.sqlite3
+*.sqlite
+/backend/vialtros_db
 
 # Archivos de compilación Python
 *.egg-info/
@@ -73,8 +75,7 @@ media/
 *.log
 
 # ── Scripts locales Windows (no subir) ─────────────────────────
-# Scripts de arranque y utilidades locales que no deben subirse al repo
-/run_vialtros.bat
+# No agregues scripts de máquina local sin una necesidad compartida.
 /Start_Server.bat
 /reiniciar_todo.bat
 
@@ -83,3 +84,7 @@ textos/RESUMEN_PREPARACION.txt
 textos/GUIA_DESPLIEGUE_APACHE.txt
 textos/CHECKLIST_DESPLIEGUE.txt
 textos/cambios_realizados.txt
+
+# Almacenamiento local de worktrees de Codex (no es contenido del proyecto)
+/.codex/worktrees/
+/.codex-worktrees/
