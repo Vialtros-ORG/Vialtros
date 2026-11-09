@@ -83,3 +83,7 @@ textos/RESUMEN_PREPARACION.txt
 textos/GUIA_DESPLIEGUE_APACHE.txt
 textos/CHECKLIST_DESPLIEGUE.txt
 textos/cambios_realizados.txt
+
+# Almacenamiento local de worktrees de Codex (no es contenido del proyecto)
+/.codex/worktrees/
+/.codex-worktrees/
