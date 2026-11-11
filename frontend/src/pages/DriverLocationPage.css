@@ -1,0 +1,58 @@
+/* Pantalla de ubicación: la información GPS es operativa, el tratamiento visual es Vialtros. */
+.vt-location-page {
+  --location-surface: var(--vt-surface);
+  --location-tint: color-mix(in srgb, var(--vt-teal) 5%, var(--vt-surface));
+  --location-line: color-mix(in srgb, var(--vt-teal) 18%, var(--vt-line));
+}
+.vt-location-page [class*="uppercase"] {
+  text-transform: none;
+  letter-spacing: .01em;
+}
+.vt-location-page [class*="border-blue-"] { border-color: var(--location-line) !important; }
+.vt-location-page [class*="text-blue-"] { color: var(--vt-teal) !important; }
+.vt-location-page [class*="bg-blue-"] { background-color: var(--location-tint) !important; }
+.vt-location-page [class*="from-blue-"] {
+  --tw-gradient-from: var(--location-tint) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: color-mix(in srgb, var(--vt-surface) 92%, var(--vt-teal)) var(--tw-gradient-to-position) !important;
+}
+.vt-location-page [class*="via-blue-"] { --tw-gradient-stops: var(--tw-gradient-from), var(--location-tint) var(--tw-gradient-via-position), var(--tw-gradient-to) !important; }
+.vt-location-page [class*="to-blue-"] { --tw-gradient-to: var(--location-tint) var(--tw-gradient-to-position) !important; }
+.vt-location-page [class*="shadow-blue-"] { --tw-shadow-color: color-mix(in srgb, var(--vt-teal) 10%, transparent) !important; }
+.vt-location-page [class*="ring-blue-"] { --tw-ring-color: color-mix(in srgb, var(--vt-teal) 20%, transparent) !important; }
+.vt-location-page [class*="hover:border-blue-"]:hover { border-color: color-mix(in srgb, var(--vt-teal) 45%, var(--vt-line)) !important; }
+.vt-location-page [class*="hover:bg-blue-"]:hover { background-color: color-mix(in srgb, var(--vt-teal) 10%, var(--vt-surface)) !important; }
+.vt-location-page [class*="hover:from-blue-"]:hover {
+  --tw-gradient-from: var(--vt-teal) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: color-mix(in srgb, var(--vt-teal) 84%, #092a31) var(--tw-gradient-to-position) !important;
+}
+.vt-location-page [class*="hover:to-blue-"]:hover { --tw-gradient-to: color-mix(in srgb, var(--vt-teal) 84%, #092a31) var(--tw-gradient-to-position) !important; }
+.vt-location-page [class*="focus:border-blue-"]:focus { border-color: var(--vt-teal) !important; }
+.vt-location-page [class*="focus:ring-blue-"]:focus { --tw-ring-color: color-mix(in srgb, var(--vt-teal) 18%, transparent) !important; }
+.vt-location-page > div > div > section {
+  border-color: var(--vt-line);
+  border-radius: 15px;
+  box-shadow: 0 8px 28px rgba(13, 40, 51, .045);
+}
+.vt-location-page > div > div > section > div > div {
+  border-radius: 13px !important;
+  box-shadow: none !important;
+}
+.vt-location-page h1 { max-width: 720px; }
+.vt-location-page h2 { color: var(--vt-ink); }
+.vt-location-page button,
+.vt-location-page a { transition: transform .18s ease, background-color .18s ease, border-color .18s ease, color .18s ease; }
+.vt-location-page button:not(:disabled):active,
+.vt-location-page a:active { transform: translateY(1px); }
+.vialtros-app[data-theme="dark"] .vt-location-page {
+  --location-tint: color-mix(in srgb, var(--vt-teal) 9%, var(--vt-surface));
+  --location-line: color-mix(in srgb, var(--vt-teal) 25%, var(--vt-line));
+}
+@media (max-width: 640px) {
+  .vt-location-page > div > div > section { padding: 16px !important; border-radius: 12px; }
+  .vt-location-page > div > div > section > div > div { padding: 16px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vt-location-page button,
+  .vt-location-page a { transition: none; }
+}
+\n

@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import Sidebar from "../components/dashboard/Sidebar";
 import { getDriverAssignedRoutes } from "../services/dashboard";
 import { getRoutes } from "../services/admin";
 import { sendDriverLocation } from "../services/driverLocation";
+import "./DriverLocationPage.css";
 import {
   geocodeAddress,
   getStreetRoute,
@@ -47,7 +49,7 @@ function formatTimestamp(value) {
   });
 }
 
-export default function DriverLocationPage({ role }) {
+export default function DriverLocationPage({ role, onLogout }) {
   const [routes, setRoutes] = useState([]);
   const [selectedRouteId, setSelectedRouteId] = useState("");
   const [loadingRoutes, setLoadingRoutes] = useState(true);
@@ -359,8 +361,18 @@ export default function DriverLocationPage({ role }) {
 
     try {
       const [originCoords, destinationCoords] = await Promise.all([
-        geocodeAddress(selectedRoute.origin),
-        geocodeAddress(selectedRoute.destination),
+        selectedRoute.origin_lat != null &&
+        selectedRoute.origin_lng != null &&
+        Number.isFinite(Number(selectedRoute.origin_lat)) &&
+        Number.isFinite(Number(selectedRoute.origin_lng))
+          ? Promise.resolve([Number(selectedRoute.origin_lat), Number(selectedRoute.origin_lng)])
+          : geocodeAddress(selectedRoute.origin),
+        selectedRoute.destination_lat != null &&
+        selectedRoute.destination_lng != null &&
+        Number.isFinite(Number(selectedRoute.destination_lat)) &&
+        Number.isFinite(Number(selectedRoute.destination_lng))
+          ? Promise.resolve([Number(selectedRoute.destination_lat), Number(selectedRoute.destination_lng)])
+          : geocodeAddress(selectedRoute.destination),
       ]);
 
       const streetRoute =
@@ -391,7 +403,9 @@ export default function DriverLocationPage({ role }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-white px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex bg-slate-100 text-slate-900">
+      <Sidebar role={role} onLogout={onLogout} />
+      <main className="vt-location-page flex-1 min-w-0 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center justify-between gap-3">
           <div>
@@ -399,11 +413,11 @@ export default function DriverLocationPage({ role }) {
               {isAdminPreview ? "Modo prueba" : "Modo conductor"}
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-              Compartir ubicacion
+              Compartir ubicación
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
               Abre esta pantalla desde el celular del conductor y deja la
-              transmision activa para alimentar el mapa en vivo.
+              transmisión activa para actualizar el mapa en vivo.
             </p>
             {isAdminPreview && (
               <p className="mt-2 inline-flex rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
@@ -470,9 +484,9 @@ export default function DriverLocationPage({ role }) {
               </div>
               <p className="mt-4 text-xs leading-5 text-slate-500">
                 {selectedRoute
-                  ? "Puedes transmitir la ubicacion real del conductor o iniciar un recorrido guiado sobre la ruta calculada."
+                  ? "Puedes compartir la ubicación del conductor o iniciar un recorrido guiado por la ruta calculada."
                   : isAdminPreview
-                    ? "Selecciona cualquier ruta para probar el envio."
+                    ? "Selecciona una ruta para iniciar la prueba."
                     : "Selecciona la ruta asignada al conductor."}
               </p>
             </div>
@@ -519,7 +533,7 @@ export default function DriverLocationPage({ role }) {
                   </p>
                 </div>
                 <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                  Ultimo envio
+                  Último envío
                 </p>
                 <p className="mt-1 text-sm font-semibold text-slate-700">
                   {formatTimestamp(lastSentAt)}
@@ -536,7 +550,7 @@ export default function DriverLocationPage({ role }) {
                   <p className="mt-1 text-sm font-semibold text-slate-800">
                     {sharingMode === "guided"
                       ? "Ruta inteligente"
-                      : "Ubicacion en vivo"}
+                    : "Ubicación en vivo"}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-blue-100 bg-white/80 px-4 py-3">
@@ -587,7 +601,7 @@ export default function DriverLocationPage({ role }) {
                 }`}
               >
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Precision GPS
+                  Precisión GPS
                 </p>
                 <p
                   className={`mt-2 text-lg font-bold ${
@@ -675,6 +689,7 @@ export default function DriverLocationPage({ role }) {
           </div>
         </section>
       </div>
+      </main>
     </div>
   );
 }

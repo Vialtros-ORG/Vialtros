@@ -5,7 +5,6 @@
 import {
   getStreetRoute as googleGetStreetRoute,
   getStreetRouteThroughPoints as googleGetStreetRouteThroughPoints,
-  snapPointToRoad as googleSnapPointToRoad,
 } from "./googleRoutesApi";
 
 
@@ -16,8 +15,6 @@ const BVA_VIEWBOX = "-77.18,3.72,-76.85,4.02";
 const BVA_CITY_SUFFIX = ", Buenaventura, Colombia";
 const geocodeCache = new Map();
 const TRACK_MAX_POINT_JUMP_KM = 1.4;
-const snapCache = new Map();
-const SNAP_CACHE_MAX = 400;
 export const BUENAVENTURA_CENTER = [3.89243, -77.02824];
 export const BUENAVENTURA_URBAN_BOUNDS = {
   minLat: 3.84,
@@ -243,13 +240,30 @@ function sanitizeBuenaventuraCoords(coords, fallbackCoords = null) {
   return null;
 }
 
+function isValidCoordinatePair(coords) {
+  return (
+    Array.isArray(coords) &&
+    coords.length === 2 &&
+    coords[0] !== null &&
+    coords[0] !== "" &&
+    coords[1] !== null &&
+    coords[1] !== "" &&
+    Number.isFinite(Number(coords[0])) &&
+    Number.isFinite(Number(coords[1])) &&
+    Number(coords[0]) >= -90 &&
+    Number(coords[0]) <= 90 &&
+    Number(coords[1]) >= -180 &&
+    Number(coords[1]) <= 180
+  );
+}
+
 function normalizeTrackMatchPoints(points) {
   return (Array.isArray(points) ? points : [])
     .map((point) => {
       if (Array.isArray(point) && point.length === 2) {
         const lat = Number(point[0]);
         const lng = Number(point[1]);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        if (!isValidCoordinatePair([lat, lng])) return null;
         return {
           coords: [lat, lng],
           speedKmh: null,
@@ -261,7 +275,7 @@ function normalizeTrackMatchPoints(points) {
 
       const lat = Number(point.latitude ?? point.lat ?? point.coords?.[0]);
       const lng = Number(point.longitude ?? point.lng ?? point.coords?.[1]);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      if (!isValidCoordinatePair([lat, lng])) return null;
 
       const speedRaw = Number(point.speed ?? point.speed_kmh ?? point.velocity);
       const timestampMs = point.timestamp
@@ -353,7 +367,7 @@ export async function getStreetRouteThroughPoints(points, options = {}) {
         if (!Array.isArray(point) || point.length !== 2) return null;
         const lat = Number(point[0]);
         const lng = Number(point[1]);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        if (!isValidCoordinatePair([lat, lng])) return null;
         return sanitizeBuenaventuraCoords([lat, lng]) || [lat, lng];
       })
       .filter(Boolean),
@@ -469,7 +483,7 @@ export async function geocodeAddress(address, options = {}) {
       if (!Array.isArray(data) || data.length === 0) return null;
       const lat = parseFloat(data[0].lat);
       const lng = parseFloat(data[0].lon);
-      return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
+      return isValidCoordinatePair([lat, lng]) ? [lat, lng] : null;
     } catch {
       return null;
     }
@@ -481,21 +495,10 @@ export async function geocodeAddress(address, options = {}) {
   // 2. Fallback sin restriccion geografica
   if (!result) result = await trySearch(clean, null);
 
-  const resolved = result || (Array.isArray(fallbackCoords) && fallbackCoords.length === 2 ? fallbackCoords : null);
-
-  // Snap geocoded coordinate to nearest road for precision
-  if (resolved) {
-    try {
-      const snapped = await googleSnapPointToRoad(resolved);
-      if (snapped) {
-        geocodeCache.set(cacheKey, snapped);
-        return snapped;
-      }
-    } catch {
-      // Use un-snapped coordinate
-    }
-  }
-
+  // fallbackCoords solo orienta la búsqueda; nunca representa la dirección
+  // consultada. Devolverlo aquí desplazaba silenciosamente el origen/destino
+  // al punto GPS actual cuando el geocodificador no encontraba resultados.
+  const resolved = isValidCoordinatePair(result) ? result : null;
   geocodeCache.set(cacheKey, resolved);
   return resolved;
 }
@@ -526,7 +529,8 @@ function straightLineRoute(from, to) {
   const distKm = haversineKm(from, to);
   return {
     coordinates: coords,
-    duration: (distKm / 30) * 3600,
+    // Keep route durations in milliseconds, matching Google Routes API.
+    duration: (distKm / 30) * 3600 * 1000,
     distance: distKm * 1000,
     isStraightLine: true,
   };
@@ -540,10 +544,12 @@ function straightLineRoute(from, to) {
  * @returns {Promise<{ coordinates: [number, number][], duration: number, distance: number, isStraightLine?: boolean }>}
  */
 export async function getStreetRoute(from, to) {
-  if (!from || !to) return null;
+  if (!isValidCoordinatePair(from) || !isValidCoordinatePair(to)) return null;
 
-  const safeFrom = sanitizeBuenaventuraCoords(from) || from;
-  const safeTo = sanitizeBuenaventuraCoords(to, safeFrom) || to;
+  const normalizedFrom = [Number(from[0]), Number(from[1])];
+  const normalizedTo = [Number(to[0]), Number(to[1])];
+  const safeFrom = sanitizeBuenaventuraCoords(normalizedFrom) || normalizedFrom;
+  const safeTo = sanitizeBuenaventuraCoords(normalizedTo, safeFrom) || normalizedTo;
 
   // Usar Google Routes API
   try {
@@ -624,7 +630,7 @@ export async function getTrackedStreetRoute(points) {
 export async function getETAMinutes(from, to) {
   const result = await getStreetRoute(from, to);
   if (!result) return null;
-  return Math.ceil(result.duration / 60);
+  return Math.ceil(result.duration / (60 * 1000));
 }
 
 /**
@@ -634,29 +640,10 @@ export async function getETAMinutes(from, to) {
  * @returns {Promise<[number, number]>}
  */
 export async function snapPointToRoad(coords) {
-  if (!Array.isArray(coords) || coords.length !== 2) return coords;
-  const [lat, lng] = coords;
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return coords;
-
-  // Cuantizar a ~11 metros para aprovechar caché
-  const keyLat = (Math.round(lat * 10000) / 10000).toFixed(4);
-  const keyLng = (Math.round(lng * 10000) / 10000).toFixed(4);
-  const cacheKey = `${keyLat},${keyLng}`;
-  if (snapCache.has(cacheKey)) return snapCache.get(cacheKey);
-
-  try {
-    // Usar Google Routes API snap
-    const snapped = await googleSnapPointToRoad(coords);
-    const result = snapped || coords;
-    if (snapCache.size >= SNAP_CACHE_MAX) {
-      const firstKey = snapCache.keys().next().value;
-      snapCache.delete(firstKey);
-    }
-    snapCache.set(cacheKey, result);
-    return result;
-  } catch {
-    return coords;
-  }
+  if (!isValidCoordinatePair(coords)) return coords;
+  // El proyecto no tiene Roads API activa. Preservamos la lectura GPS; el
+  // ajuste visual a la polilínea planificada se hace en TrackingPage.
+  return [Number(coords[0]), Number(coords[1])];
 }
 
 /**
@@ -670,8 +657,7 @@ export async function buildRoadPathBetweenPoints(points) {
     (point) =>
       Array.isArray(point) &&
       point.length === 2 &&
-      Number.isFinite(point[0]) &&
-      Number.isFinite(point[1]),
+      isValidCoordinatePair(point),
   );
   if (validPoints.length < 2) return validPoints;
 

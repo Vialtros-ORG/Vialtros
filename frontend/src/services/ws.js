@@ -2,10 +2,10 @@
 
 export function resolveWsBaseUrl() {
   const configuredWsUrl = process.env.REACT_APP_WS_URL?.trim();
+  if (configuredWsUrl) {
+    return configuredWsUrl.replace(/\/+$/, "");
+  }
 
-if (configuredWsUrl) {
-  return configuredWsUrl.replace(/\/+$/, "");
-}
   const apiUrl = process.env.REACT_APP_API_URL?.trim();
   if (apiUrl) {
     try {
@@ -23,6 +23,11 @@ if (configuredWsUrl) {
   }
 
   return "ws://localhost/ws";
+}
+
+export function getWebSocketProtocols() {
+  const token = localStorage.getItem("access") || "";
+  return token ? ["vialtros", `vialtros.jwt.${token}`] : ["vialtros"];
 }
 
 function parseIncomingMessage(rawText) {
@@ -86,10 +91,10 @@ export function connectTrackingWS(routeId, onMessage, handlers = {}) {
   } = handlers;
 
   const safeReconnectDelay = Math.max(Number(reconnectDelayMs) || 1500, 500);
-const safeMaxReconnectAttempts = Math.max(
-  Number(maxReconnectAttempts) || 20,
-  0,
-);
+  const safeMaxReconnectAttempts = Math.max(
+    Number(maxReconnectAttempts) || 20,
+    0,
+  );
 
   let socket = null;
   let closedManually = false;
@@ -99,9 +104,9 @@ const safeMaxReconnectAttempts = Math.max(
 
   const normalizedRouteId = Number(routeId);
 
-if (!Number.isFinite(normalizedRouteId)) {
-  throw new Error("connectTrackingWS requiere un routeId numerico");
-}
+  if (!Number.isFinite(normalizedRouteId)) {
+    throw new Error("connectTrackingWS requiere un routeId numerico");
+  }
 
   if (typeof WebSocket === "undefined") {
     throw new Error("WebSocket no esta disponible en este entorno");
@@ -109,7 +114,7 @@ if (!Number.isFinite(normalizedRouteId)) {
 
   const connect = () => {
     const wsUrl = `${resolveWsBaseUrl()}/tracking/${normalizedRouteId}/`;
-    socket = new WebSocket(wsUrl);
+    socket = new WebSocket(wsUrl, getWebSocketProtocols());
 
     socket.onopen = () => {
       wasConnected = true;
@@ -160,13 +165,6 @@ if (!Number.isFinite(normalizedRouteId)) {
   connect();
 
   return {
-    send: (payload) => {
-      if (!socket || socket.readyState !== WebSocket.OPEN) return false;
-      socket.send(
-        typeof payload === "string" ? payload : JSON.stringify(payload),
-      );
-      return true;
-    },
     getReadyState: () => socket?.readyState ?? WebSocket.CLOSED,
     close: () => {
       closedManually = true;

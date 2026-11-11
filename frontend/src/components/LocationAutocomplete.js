@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useGoogleMaps } from "../context/GoogleMapsContext";
 import "./location-autocomplete.css";
 
@@ -94,6 +94,7 @@ export default function LocationAutocomplete({
   disabled = false,
 }) {
   const { isLoaded } = useGoogleMaps();
+  const listboxId = useId();
   const [predictions, setPredictions] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -285,8 +286,11 @@ export default function LocationAutocomplete({
         autoComplete="off"
         required={required}
         disabled={disabled}
+        role="combobox"
         aria-autocomplete="list"
-        aria-expanded={isOpen}
+        aria-expanded={isOpen && predictions.length > 0}
+        aria-controls={listboxId}
+        aria-activedescendant={activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined}
       />
       {isLoading && (
         <span className="lac-spinner" aria-label="Buscando...">
@@ -311,7 +315,7 @@ export default function LocationAutocomplete({
         inputEl
       )}
       {isOpen && predictions.length > 0 && (
-        <div className="lac-dropdown" role="listbox">
+        <div id={listboxId} className="lac-dropdown" role="listbox">
           {predictions.map((prediction, index) => {
             const iconKey = getPlaceIcon(prediction.types);
             const main = prediction.structured_formatting?.main_text;
@@ -319,6 +323,7 @@ export default function LocationAutocomplete({
             return (
               <button
                 key={prediction.place_id}
+                id={`${listboxId}-option-${index}`}
                 type="button"
                 role="option"
                 aria-selected={index === activeIndex}

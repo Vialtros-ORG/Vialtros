@@ -5,6 +5,13 @@ export async function getTrackingsByRoute(routeId) {
   return Array.isArray(response.data) ? response.data : [];
 }
 
+export async function getRouteHistoryPage(routeId, { limit = 250, offset = 0 } = {}) {
+  const response = await api.get("/tracking/", {
+    params: { route: routeId, history: 1, limit, offset },
+  });
+  return response.data;
+}
+
 export async function updateTrackingStatus(trackingId, status) {
   const response = await api.post(`/tracking/${trackingId}/update_status/`, {
     status,

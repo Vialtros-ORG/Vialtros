@@ -175,7 +175,7 @@ export default function DriverRoutesPage({ onLogout }) {
                       <p className="text-sm font-medium text-slate-800 truncate">{route.origin || '—'}</p>
                     </div>
                   </div>
-                  <div className="mx-4 h-px bg-slate-200" />
+                  <div className="vt-route-endpoint-divider mx-4 h-px" aria-hidden="true" />
                   <div className="flex items-center gap-3 px-4 py-3">
                     <span className="h-2.5 w-2.5 rounded-full bg-slate-400 shrink-0" />
                     <div className="min-w-0">

@@ -1,9 +1,9 @@
-import { resolveWsBaseUrl } from "./ws";
+import { getWebSocketProtocols, resolveWsBaseUrl } from "./ws";
 
 /**
  * Conecta al WebSocket de notificaciones del usuario autenticado.
- * El token JWT se pasa como query param ?token=... porque los headers
- * no estan disponibles en el handshake WebSocket del navegador.
+ * El token JWT se transmite como subprotocolo del handshake para no exponerlo
+ * en URLs, historial del navegador ni logs de acceso HTTP.
  *
  * Retorna un objeto con close() para desconectar manualmente.
  */
@@ -23,10 +23,8 @@ export function connectNotificationWS(handlers = {}) {
   let reconnectTimer = null;
 
   const connect = () => {
-    const token = localStorage.getItem("access") || "";
     const base = resolveWsBaseUrl();
-    const url = `${base}/notifications/${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-    socket = new WebSocket(url);
+    socket = new WebSocket(`${base}/notifications/`, getWebSocketProtocols());
 
     socket.onopen = () => {
       wasConnected = true;

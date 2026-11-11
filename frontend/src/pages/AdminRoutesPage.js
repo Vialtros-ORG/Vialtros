@@ -11,7 +11,7 @@ import {
   getDrivers,
   getPassengers,
 } from "../services/admin";
-import { geocodeAddress, snapPointToRoad } from "../services/routing";
+import { geocodeAddress } from "../services/routing";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 
 const EMPTY_FORM = {
@@ -140,33 +140,23 @@ export default function AdminRoutesPage({ role, onLogout }) {
           ? destResolved[1]
           : null;
 
-      // Snap solo si las coords se obtuvieron por geocoding (no por sugerencia)
-      // Se ejecutan en paralelo
-      const needSnapOrigin =
-        !originHadCoords &&
-        Number.isFinite(originLat) &&
-        Number.isFinite(originLng);
-      const needSnapDest =
-        !destHadCoords &&
-        Number.isFinite(destLat) &&
-        Number.isFinite(destLng);
+      const validCoordinate = (lat, lng) =>
+        lat != null &&
+        lng != null &&
+        Number.isFinite(Number(lat)) &&
+        Number.isFinite(Number(lng)) &&
+        Number(lat) >= -90 &&
+        Number(lat) <= 90 &&
+        Number(lng) >= -180 &&
+        Number(lng) <= 180;
 
-      const [snappedOrigin, snappedDest] = await Promise.all([
-        needSnapOrigin
-          ? snapPointToRoad([originLat, originLng]).catch(() => null)
-          : null,
-        needSnapDest
-          ? snapPointToRoad([destLat, destLng]).catch(() => null)
-          : null,
-      ]);
-
-      if (Array.isArray(snappedOrigin)) {
-        originLat = snappedOrigin[0];
-        originLng = snappedOrigin[1];
+      if (!validCoordinate(originLat, originLng)) {
+        setFormError("No se pudo ubicar el origen. Selecciona una sugerencia de dirección válida.");
+        return;
       }
-      if (Array.isArray(snappedDest)) {
-        destLat = snappedDest[0];
-        destLng = snappedDest[1];
+      if (!validCoordinate(destLat, destLng)) {
+        setFormError("No se pudo ubicar el destino. Selecciona una sugerencia de dirección válida.");
+        return;
       }
 
       const payload = {
@@ -217,22 +207,6 @@ export default function AdminRoutesPage({ role, onLogout }) {
     const vb = String(getRouteVal(b, sortCol)).toLowerCase();
     return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
   });
-
-  const getPassengerPreview = (route) => {
-    if (
-      !Array.isArray(route.passenger_details) ||
-      route.passenger_details.length === 0
-    ) {
-      return "Sin pasajeros";
-    }
-
-    const names = route.passenger_details
-      .map((p) => p.user_detail?.username || `#${p.id}`)
-      .filter(Boolean);
-
-    if (names.length <= 2) return names.join(", ");
-    return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
-  };
 
   return (
     <div className="min-h-screen flex bg-gray-50 font-sans">

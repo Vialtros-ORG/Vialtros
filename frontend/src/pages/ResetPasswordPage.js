@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { LogoIcon } from "../components/Logo";
+import "./RecoveryPages.css";
 import { resetPassword } from "../services/api";
 
 const LOGIN_FEATURES = [
@@ -108,14 +109,10 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="h-screen flex font-sans bg-white overflow-hidden">
+    <div className="vt-recovery-page h-screen flex font-sans bg-white overflow-hidden">
       {/* Panel izquierdo: branding */}
       <div
-        className="hidden lg:flex flex-col justify-between flex-1 px-16 py-10 relative overflow-hidden"
-        style={{
-          background:
-            "linear-gradient(135deg, #1E40AF 0%, #2563EB 55%, #3B82F6 100%)",
-        }}
+        className="vt-recovery-story hidden lg:flex flex-col justify-between flex-1 px-16 py-10 relative overflow-hidden"
       >
         <svg
           className="absolute inset-0 w-full h-full opacity-10 pointer-events-none"
@@ -136,12 +133,12 @@ export default function ResetPasswordPage() {
           />
         </svg>
 
-        <div className="relative z-10 flex items-center gap-5">
+        <Link to="/" aria-label="Ir al inicio de Vialtros" className="relative z-10 flex items-center gap-5 no-underline">
           <LogoIcon size={80} color="white" />
           <span className="text-5xl font-bold text-white tracking-tight">
             Vialtros
           </span>
-        </div>
+        </Link>
 
         <div className="relative z-10">
           <h1 className="text-4xl font-extrabold text-white leading-tight max-w-md">
@@ -180,11 +177,11 @@ export default function ResetPasswordPage() {
       </div>
 
       {/* Panel derecho: formulario */}
-      <div className="flex flex-col justify-center items-center w-full lg:w-[560px] px-12 py-8 bg-white overflow-y-auto">
-        <div className="flex items-center gap-2 mb-10 lg:hidden">
-          <LogoIcon size={48} color="#2563EB" />
+      <div className="vt-recovery-panel flex flex-col justify-center items-center w-full lg:w-[560px] px-12 py-8 bg-white overflow-y-auto">
+        <Link to="/" aria-label="Ir al inicio de Vialtros" className="flex items-center gap-2 mb-10 lg:hidden no-underline">
+          <LogoIcon size={48} color="#0b6e80" />
           <span className="text-xl font-bold text-gray-900">Vialtros</span>
-        </div>
+        </Link>
 
         <div className="w-full max-w-md">
           {tokenError ? (

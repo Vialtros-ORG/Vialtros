@@ -14,6 +14,7 @@ import {
   MdInbox,
 } from "react-icons/md";
 import { useNotifications } from "../../context/NotificationContext";
+import { useAppTheme } from "../../context/ThemeContext";
 
 const TYPE_ICON = {
   route_started: MdDirectionsBus,
@@ -26,13 +27,13 @@ const TYPE_ICON = {
 };
 
 const TYPE_COLOR = {
-  route_started: "text-blue-500",
+  route_started: "text-teal-600",
   student_picked_up: "text-green-500",
   student_dropped_off: "text-emerald-500",
   approaching_stop: "text-amber-500",
-  approaching_destination: "text-indigo-500",
+  approaching_destination: "text-teal-600",
   driver_near_stop: "text-orange-500",
-  driver_near_destination: "text-purple-500",
+  driver_near_destination: "text-teal-600",
 };
 
 function timeAgo(isoString) {
@@ -46,6 +47,7 @@ function timeAgo(isoString) {
 
 export default function NotificationCenter({ sidebarMode = false }) {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
+  const { resolvedTheme } = useAppTheme();
   const [open, setOpen] = useState(false);
   const [selectedNotif, setSelectedNotif] = useState(null);
   const [panelStyle, setPanelStyle] = useState({});
@@ -121,7 +123,7 @@ export default function NotificationCenter({ sidebarMode = false }) {
 
       {/* Panel — renderizado via portal para escapar overflow del contenedor */}
       {open && ReactDOM.createPortal(
-        <div ref={panelRef} style={panelStyle} className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+        <div ref={panelRef} style={panelStyle} data-theme={resolvedTheme} className="vt-notification-panel bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <span className="text-sm font-semibold text-gray-800">Notificaciones</span>
@@ -131,7 +133,7 @@ export default function NotificationCenter({ sidebarMode = false }) {
                 className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
               >
                 <MdDoneAll className="text-sm" />
-                Marcar todo como leido
+                Marcar todo como leído
               </button>
             )}
           </div>

@@ -147,10 +147,21 @@ class DriverSerializer(serializers.ModelSerializer):
 
 class PassengerSerializer(serializers.ModelSerializer):
     user_detail = UserBasicSerializer(source='user', read_only=True)
+    pickup_lat = serializers.FloatField(min_value=-90, max_value=90, required=False, allow_null=True)
+    pickup_lng = serializers.FloatField(min_value=-180, max_value=180, required=False, allow_null=True)
 
     class Meta:
         model = Passenger
         fields = ('id', 'user', 'user_detail', 'phone', 'pickup_address', 'pickup_lat', 'pickup_lng')
+
+    def validate(self, attrs):
+        latitude = attrs.get('pickup_lat', getattr(self.instance, 'pickup_lat', None))
+        longitude = attrs.get('pickup_lng', getattr(self.instance, 'pickup_lng', None))
+        if (latitude is None) != (longitude is None):
+            raise serializers.ValidationError(
+                'La latitud y la longitud de la parada deben enviarse juntas.'
+            )
+        return attrs
 
 
 class RouteSerializer(serializers.ModelSerializer):
@@ -158,6 +169,10 @@ class RouteSerializer(serializers.ModelSerializer):
     passenger_details = PassengerSerializer(source='passengers', many=True, read_only=True)
     passenger_count = serializers.SerializerMethodField()
     intermediate_stops = serializers.SerializerMethodField()
+    origin_lat = serializers.FloatField(min_value=-90, max_value=90, required=False, allow_null=True)
+    origin_lng = serializers.FloatField(min_value=-180, max_value=180, required=False, allow_null=True)
+    destination_lat = serializers.FloatField(min_value=-90, max_value=90, required=False, allow_null=True)
+    destination_lng = serializers.FloatField(min_value=-180, max_value=180, required=False, allow_null=True)
 
     class Meta:
         model = Route
@@ -171,12 +186,25 @@ class RouteSerializer(serializers.ModelSerializer):
     def get_passenger_count(self, obj):
         return len(obj.passengers.all())
 
+    def validate(self, attrs):
+        for prefix in ('origin', 'destination'):
+            latitude = attrs.get(f'{prefix}_lat', getattr(self.instance, f'{prefix}_lat', None))
+            longitude = attrs.get(f'{prefix}_lng', getattr(self.instance, f'{prefix}_lng', None))
+            if (latitude is None) != (longitude is None):
+                raise serializers.ValidationError({
+                    f'{prefix}_lat': 'La latitud y la longitud deben enviarse juntas.'
+                })
+        return attrs
+
     def get_intermediate_stops(self, obj):
         passengers = obj.passengers.all()
         return build_route_intermediate_stops(passengers)
 
 
 class TrackingSerializer(serializers.ModelSerializer):
+    latitude = serializers.FloatField(min_value=-90, max_value=90)
+    longitude = serializers.FloatField(min_value=-180, max_value=180)
+
     class Meta:
         model = Tracking
         fields = '__all__'
@@ -190,8 +218,8 @@ class TrackingIngestSerializer(serializers.Serializer):
         allow_null=True,
     )
     status = serializers.ChoiceField(choices=PickupStatus.choices, default=PickupStatus.NOT_PICKED)
-    latitude = serializers.FloatField()
-    longitude = serializers.FloatField()
+    latitude = serializers.FloatField(min_value=-90, max_value=90)
+    longitude = serializers.FloatField(min_value=-180, max_value=180)
     timestamp = serializers.DateTimeField(required=False)
     speed_kmh = serializers.FloatField(required=False, allow_null=True)
     source = serializers.CharField(required=False, allow_blank=True, max_length=64)

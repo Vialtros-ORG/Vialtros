@@ -35,10 +35,11 @@ function safeLatLngPath(coordsArray) {
 const GOOGLE_MAPS_MAP_ID = process.env.REACT_APP_GOOGLE_MAPS_MAP_ID || "";
 const USE_VECTOR_MAP = Boolean(GOOGLE_MAPS_MAP_ID);
 const WORLD_CENTER = [0, 0];
-const CORPORATE_ROUTE_COLOR = "#2563EB";
-const ROUTE_COLOR = "#4285F4";
-const ROUTE_COLOR_SHADOW = "#1558D6";
-const ROUTE_TRAVELED_COLOR = "#1A73E8";
+const CORPORATE_ROUTE_COLOR = "#0b8290";
+const ROUTE_COLOR = "#0b6e80";
+const ROUTE_COLOR_SHADOW = "#075765";
+const ROUTE_TRAVELED_COLOR = "#075765";
+const ROUTE_REMAINING_COLOR = "#008f9f";
 
 const GOOGLE_MAPS_STYLES = [];
 
@@ -58,6 +59,22 @@ const GOOGLE_MAPS_OPTIONS = {
     ? { mapId: GOOGLE_MAPS_MAP_ID }
     : { styles: GOOGLE_MAPS_STYLES }),
 };
+
+const MAP_DARK_STYLES = [
+  { elementType: "geometry", stylers: [{ color: "#132a32" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#b8cbd0" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#132a32" }] },
+  { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#304b54" }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#18372f" }] },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#1b3439" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#9db6ba" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#243e47" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#18313a" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#a9bec3" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#315563" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#203942" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0d252e" }] },
+];
 
 // Modo navegación GPS: mapa claro simplificado, sin POIs distractores
 const GPS_NAV_STYLES = [
@@ -87,7 +104,7 @@ const GPS_NIGHT_STYLES = [
   { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#1e2535" }] },
 ];
 
-function getArrowSvg(modifier, type, color = "#1a56db") {
+function getArrowSvg(modifier, type, color = "#0b6e80") {
   const C = color;
   // Ícono de llegada — pin de destino
   if (type === "arrive") {
@@ -428,6 +445,7 @@ export default function MapView({
   onExitGps = null,
   isAdmin = false,
   isDriver = false,
+  routeActive = false,
   darkMode = false,
 }) {
   const { isLoaded: mapsApiLoaded, loadError: mapsApiLoadError, authError: mapsApiAuthError } = useGoogleMaps();
@@ -455,6 +473,7 @@ export default function MapView({
   const lastPoiFetchTimeRef = useRef(0);
   const fittedOnceRef = useRef(false);
   const lastFitLengthRef = useRef(-1);
+  const previousRouteActiveRef = useRef(false);
   const firstFollowRef = useRef(true);
   const userMovedMapRef = useRef(true);
   const containerRef = useRef(null);
@@ -468,6 +487,21 @@ export default function MapView({
   const suppressListenerRef = useRef(false);
   const [mapZoomLevel, setMapZoomLevel] = useState(14);
   const [selectedVehicleKey, setSelectedVehicleKey] = useState(null);
+  const routeColor = darkMode ? "#55bec8" : ROUTE_COLOR;
+  const routeShadowColor = darkMode ? "#287d88" : ROUTE_COLOR_SHADOW;
+  const corporateRouteColor = darkMode ? "#64c7cf" : CORPORATE_ROUTE_COLOR;
+  const traveledSegmentColor = darkMode ? "#669da2" : ROUTE_TRAVELED_COLOR;
+  const remainingSegmentColor = darkMode ? "#62d5df" : ROUTE_REMAINING_COLOR;
+
+  const mapOptions = useMemo(() => {
+    if (darkMode && !gpsMode) {
+      const options = { ...GOOGLE_MAPS_OPTIONS };
+      delete options.mapId;
+      options.styles = MAP_DARK_STYLES;
+      return options;
+    }
+    return GOOGLE_MAPS_OPTIONS;
+  }, [darkMode, gpsMode]);
 
 
   const handleMapLoad = useCallback((map) => {
@@ -484,6 +518,10 @@ export default function MapView({
         setIsVectorMap(isVectorAfterTiles);
       }
     });
+  }, []);
+  const handleMapUnmount = useCallback(() => {
+    setMapRef(null);
+    setIsVectorMap(false);
   }, []);
 
   // Cerrar menú GPS al hacer click fuera
@@ -666,7 +704,21 @@ export default function MapView({
     return 2;
   }, [focusAllVehicles, latestPoint, originCoords, destinationCoords, userCoords]);
 
-  function resolvePoiCoords() {
+  const vehiclePoint = useMemo(() => {
+    if (
+      Number.isFinite(vehiclePosition?.latitude) &&
+      Number.isFinite(vehiclePosition?.longitude)
+    ) {
+      return [
+        Number(vehiclePosition.latitude),
+        Number(vehiclePosition.longitude),
+      ];
+    }
+
+    return latestPoint;
+  }, [latestPoint, vehiclePosition?.latitude, vehiclePosition?.longitude]);
+
+  const resolvePoiCoords = useCallback(() => {
     if (Array.isArray(vehiclePoint)) {
       return vehiclePoint;
     }
@@ -682,7 +734,7 @@ export default function MapView({
     }
 
     return Array.isArray(center) ? center : null;
-  }
+  }, [vehiclePoint, mapRef, center]);
 
   const loadLocalPois = useCallback(async () => {
     try {
@@ -879,19 +931,6 @@ out center;`;
     ],
   );
 
-  const vehiclePoint = useMemo(() => {
-    if (
-      Number.isFinite(vehiclePosition?.latitude) &&
-      Number.isFinite(vehiclePosition?.longitude)
-    ) {
-      return [
-        Number(vehiclePosition.latitude),
-        Number(vehiclePosition.longitude),
-      ];
-    }
-
-    return latestPoint;
-  }, [latestPoint, vehiclePosition?.latitude, vehiclePosition?.longitude]);
   const effectiveVehiclePoint = useMemo(
     () => animatedVehiclePoint || vehiclePoint,
     [animatedVehiclePoint, vehiclePoint],
@@ -921,7 +960,7 @@ out center;`;
       fetchPOIs(coords[0], coords[1], radius);
     }, 5000);
     return () => { if (poisTimerRef.current) clearTimeout(poisTimerRef.current); };
-  }, [vehiclePoint, mapRef, center, fetchPOIs]);
+  }, [vehiclePoint, mapRef, center, fetchPOIs, resolvePoiCoords]);
 
   // FitBounds: ajusta el viewport cuando cambian las coordenadas de la ruta
   useEffect(() => {
@@ -949,6 +988,23 @@ out center;`;
     suppressListenerRef.current = false;
     fittedOnceRef.current = true;
   }, [mapRef, fitCoords, focusAllVehicles, hasLiveTrackings]);
+
+  useEffect(() => {
+    const justStarted = routeActive && !previousRouteActiveRef.current;
+    previousRouteActiveRef.current = routeActive;
+    if (!mapRef || !justStarted || !effectiveVehiclePoint) return;
+
+    const [lat, lng] = effectiveVehiclePoint;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    userMovedMapRef.current = false;
+    suppressListenerRef.current = true;
+    mapRef.panTo({ lat, lng });
+    mapRef.setZoom(16);
+    window.setTimeout(() => {
+      suppressListenerRef.current = false;
+    }, 300);
+  }, [mapRef, routeActive, effectiveVehiclePoint]);
 
   const primaryVehicle = useMemo(
     () =>
@@ -997,7 +1053,7 @@ out center;`;
 
   // AutoFollowVehicle: centra el mapa en el vehiculo cuando el seguimiento está activo
   useEffect(() => {
-    if (!mapRef || !effectiveVehiclePoint || focusAllVehicles || !hasLiveTrackings) return;
+    if (!mapRef || !effectiveVehiclePoint || focusAllVehicles || (!hasLiveTrackings && !routeActive)) return;
     const [lat, lng] = effectiveVehiclePoint;
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
@@ -1054,7 +1110,7 @@ out center;`;
     if (userMovedMapRef.current) return;
     mapRef.panTo({ lat, lng });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapRef, effectiveVehiclePoint, focusAllVehicles, hasLiveTrackings, gpsMode, activeVehicles, isVectorMap]);
+  }, [mapRef, effectiveVehiclePoint, focusAllVehicles, hasLiveTrackings, routeActive, gpsMode, activeVehicles, isVectorMap]);
 
   const plannedKm = Math.round((plannedLine?.length > 1 ? lineDistanceKm(plannedLine) : 0) * 10) / 10;
   const traveledKm = Math.round((traveledLine?.length > 1 ? lineDistanceKm(traveledLine) : 0) * 10) / 10;
@@ -1063,8 +1119,8 @@ out center;`;
   // Aplica estilos del mapa según modo (GPS/noche/normal)
   useEffect(() => {
     if (!mapRef) return;
-    if (USE_VECTOR_MAP) {
-      // Con mapId activo, styles está prohibido — usar colorScheme (Cloud Styling)
+    if (mapOptions.mapId) {
+      // Cuando hay mapId, Google Maps exige administrar el estilo en Cloud Console.
       const isDark = (gpsMode && gpsNightMode) || (!gpsMode && darkMode);
       try {
         const scheme = isDark
@@ -1078,7 +1134,7 @@ out center;`;
     if (gpsMode) {
       styles = gpsNightMode ? GPS_NIGHT_STYLES : GPS_NAV_STYLES;
     } else {
-      styles = darkMode ? GPS_NIGHT_STYLES : GOOGLE_MAPS_STYLES;
+      styles = darkMode ? MAP_DARK_STYLES : GOOGLE_MAPS_STYLES;
     }
     mapRef.setOptions({
       styles,
@@ -1089,7 +1145,7 @@ out center;`;
       rotateControl: false,
       panControl: false,
     });
-  }, [mapRef, gpsMode, gpsNightMode, darkMode, isVectorMap]);
+  }, [mapRef, gpsMode, gpsNightMode, darkMode, mapOptions]);
 
   const nextStep = useMemo(() => {
     if (!gpsMode || !Array.isArray(navigationSteps) || !vehiclePoint) return null;
@@ -1291,8 +1347,10 @@ out center;`;
           center={toLatLng(center) || { lat: WORLD_CENTER[0], lng: WORLD_CENTER[1] }}
           zoom={defaultZoom}
           onLoad={handleMapLoad}
+          onUnmount={handleMapUnmount}
           onClick={handleMapClick}
-          options={GOOGLE_MAPS_OPTIONS}
+          key={`vialtros-map-${darkMode ? "dark" : "light"}-${gpsMode ? "gps" : "route"}`}
+          options={mapOptions}
         >
           {/* ---- Rutas superpuestas (modo admin / focus all) — solo cuando hay ruta resaltada ---- */}
           {highlightedRouteIdSet.size > 0 && normalizedRouteOverlays.map((overlay) => {
@@ -1305,13 +1363,13 @@ out center;`;
                 {isHighlighted && (
                   <Polyline
                     path={path}
-                    options={{ strokeColor: "#3B82F6", strokeWeight: 14, strokeOpacity: 0.07, geodesic: true }}
+                    options={{ strokeColor: darkMode ? "#42aeb8" : "#0b8290", strokeWeight: 14, strokeOpacity: 0.09, geodesic: true }}
                   />
                 )}
                 <Polyline
                   path={path}
                   options={{
-                    strokeColor: "#FFFFFF",
+                    strokeColor: darkMode ? "#132a32" : "#FFFFFF",
                     strokeWeight: isHighlighted ? 9 : 6,
                     strokeOpacity: isDimmed ? 0.04 : isHighlighted ? 0.60 : 0.45,
                     geodesic: true,
@@ -1320,7 +1378,7 @@ out center;`;
                 <Polyline
                   path={path}
                   options={{
-                    strokeColor: isHighlighted ? "#1D4ED8" : CORPORATE_ROUTE_COLOR,
+                    strokeColor: isHighlighted ? (darkMode ? "#82d6dd" : "#075765") : corporateRouteColor,
                     strokeWeight: isHighlighted ? 5 : 3,
                     strokeOpacity: isDimmed ? 0.15 : isHighlighted ? 0.95 : 0.85,
                     geodesic: true,
@@ -1335,47 +1393,47 @@ out center;`;
             <>
               <Polyline
                 path={plannedPath}
-                options={{ strokeColor: ROUTE_COLOR_SHADOW, strokeWeight: 10, strokeOpacity: 0.06, geodesic: true }}
+                options={{ strokeColor: routeShadowColor, strokeWeight: 10, strokeOpacity: 0.1, geodesic: true }}
               />
               <Polyline
                 path={plannedPath}
-                options={{ strokeColor: "#FFFFFF", strokeWeight: 7, strokeOpacity: 0.55, geodesic: true }}
+                options={{ strokeColor: darkMode ? "#10252c" : "#FFFFFF", strokeWeight: 7, strokeOpacity: darkMode ? 0.85 : 0.55, geodesic: true }}
               />
               <Polyline
                 path={plannedPath}
-                options={{ strokeColor: ROUTE_COLOR, strokeWeight: 5, strokeOpacity: 1.0, geodesic: true }}
+                options={{ strokeColor: routeColor, strokeWeight: 5, strokeOpacity: 1.0, geodesic: true }}
               />
             </>
           )}
 
-          {/* ---- Tramo restante — azul Google Maps, grosor profesional ---- */}
+          {/* El tramo pendiente mantiene el acento brillante para guiar la vista. */}
           {remainingPath && !isAdmin && (
             <>
               <Polyline
                 path={remainingPath}
-                options={{ strokeColor: ROUTE_COLOR_SHADOW, strokeWeight: 10, strokeOpacity: 0.06, geodesic: true }}
+                options={{ strokeColor: routeShadowColor, strokeWeight: 10, strokeOpacity: 0.16, geodesic: true, zIndex: 2 }}
               />
               <Polyline
                 path={remainingPath}
-                options={{ strokeColor: "#FFFFFF", strokeWeight: 7, strokeOpacity: 0.55, geodesic: true }}
+                options={{ strokeColor: darkMode ? "#10252c" : "#FFFFFF", strokeWeight: 7, strokeOpacity: darkMode ? 0.72 : 0.32, geodesic: true, zIndex: 3 }}
               />
               <Polyline
                 path={remainingPath}
-                options={{ strokeColor: ROUTE_COLOR, strokeWeight: 5, strokeOpacity: 1.0, geodesic: true }}
+                options={{ strokeColor: remainingSegmentColor, strokeWeight: 5, strokeOpacity: 1.0, geodesic: true, zIndex: 4 }}
               />
             </>
           )}
 
-          {/* ---- Tramo recorrido — azul intenso diferenciado, misma familia visual ---- */}
+          {/* El tramo recorrido usa un tono profundo y menor intensidad. */}
           {traveledPath && !isAdmin && (
             <>
               <Polyline
                 path={traveledPath}
-                options={{ strokeColor: "#FFFFFF", strokeWeight: 5, strokeOpacity: 0.18, geodesic: true }}
+                options={{ strokeColor: darkMode ? "#10252c" : "#FFFFFF", strokeWeight: 7, strokeOpacity: darkMode ? 0.72 : 0.28, geodesic: true, zIndex: 1 }}
               />
               <Polyline
                 path={traveledPath}
-                options={{ strokeColor: ROUTE_TRAVELED_COLOR, strokeWeight: 5, strokeOpacity: 0.55, geodesic: true }}
+                options={{ strokeColor: traveledSegmentColor, strokeWeight: 5, strokeOpacity: 0.96, geodesic: true, zIndex: 2 }}
               />
             </>
           )}
@@ -1429,9 +1487,9 @@ out center;`;
               <div style={{ transform: "translate(-50%, -100%)" }}>
                 <div className="vt-dest-pin">
                   <svg width="28" height="36" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M14 1C7.37 1 2 6.37 2 13c0 8.63 12 22 12 22S26 21.63 26 13C26 6.37 20.63 1 14 1z" fill="#1d4ed8" stroke="white" strokeWidth="1.8"/>
+                    <path d="M14 1C7.37 1 2 6.37 2 13c0 8.63 12 22 12 22S26 21.63 26 13C26 6.37 20.63 1 14 1z" fill="#0b6e80" stroke="white" strokeWidth="1.8"/>
                     <circle cx="14" cy="13" r="5" fill="white"/>
-                    <circle cx="14" cy="13" r="2.5" fill="#1d4ed8"/>
+                    <circle cx="14" cy="13" r="2.5" fill="#0b6e80"/>
                   </svg>
                 </div>
               </div>
@@ -1451,7 +1509,7 @@ out center;`;
                 >
                   {(() => {
                     const isMoving = primaryVehicle.status === "En ruta";
-                    const dotColor = isMoving ? "#2563eb" : "#64748b";
+                    const dotColor = isMoving ? "#0b8290" : "#64748b";
                     const wedgeColor = isMoving ? "rgba(37,99,235,0.42)" : "rgba(100,116,139,0.35)";
                     const geoHeading = (primaryVehicleRotation + 90 + 360) % 360;
                     if (gpsMode) {
@@ -1531,7 +1589,7 @@ out center;`;
                   >
                     {(() => {
                       const isMoving = vehicle.status === "En ruta";
-                      const dotColor = isMoving ? "#2563eb" : "#64748b";
+                      const dotColor = isMoving ? "#0b8290" : "#64748b";
                       if (mapZoomLevel <= 12) {
                         return (
                           <div className="vt-marker-dot-wrap">
@@ -1602,7 +1660,7 @@ out center;`;
               <div className="map-click-popup">
                 <div className="map-click-popup-header">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#2563EB"/>
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#0b6e80"/>
                   </svg>
                   <span className="map-click-popup-coords">
                     {clickedPlace.lat.toFixed(5)}, {clickedPlace.lng.toFixed(5)}
@@ -1764,8 +1822,8 @@ out center;`;
 
 
       {/* ---- Leyenda ---- */}
-      {!isAdmin && !isDriver && !gpsMode && (
-        <div className="map-legend">
+      {!isAdmin && !gpsMode && (!isDriver || routeActive) && (
+        <div className={`map-legend${darkMode ? " map-legend-dark" : ""}`}>
           <div className="legend-title">Leyenda</div>
           {primaryVehicle && (
             <div className="legend-item">

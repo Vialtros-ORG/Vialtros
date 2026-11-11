@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserProfileSerializer,
@@ -801,8 +802,58 @@ class TrackingViewSet(viewsets.ModelViewSet):
         qs = self.get_queryset()
 
         route_id = request.query_params.get('route')
+        history_mode = request.query_params.get('history') == '1'
+        if history_mode and not route_id:
+            return Response({'detail': 'Indica una ruta para consultar su historial.'}, status=status.HTTP_400_BAD_REQUEST)
         if route_id:
             qs = qs.filter(route_id=route_id)
+
+        if history_mode:
+            try:
+                limit = max(1, min(int(request.query_params.get('limit', 250)), 500))
+                offset = max(0, int(request.query_params.get('offset', 0)))
+            except (ValueError, TypeError):
+                return Response({'detail': 'Los parámetros de paginación no son válidos.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            ordered = qs.order_by('timestamp', 'id')
+            total = ordered.count()
+            page = ordered[offset:offset + limit]
+            serialized = TrackingSerializer(list(page), many=True).data
+
+            response_data = {
+                'results': serialized,
+                'total': total,
+                'limit': limit,
+                'offset': offset,
+                'has_more': offset + len(serialized) < total,
+            }
+            if offset == 0:
+                gps_points = ordered.filter(passenger__isnull=True)
+                first = gps_points.values_list('timestamp', flat=True).first()
+                last = gps_points.order_by('-timestamp', '-id').values_list('timestamp', flat=True).first()
+                previous_point = None
+                distance_km = 0.0
+                speed_total = 0.0
+                speed_count = 0
+                peak_speed = 0.0
+                for latitude, longitude, speed in gps_points.values_list('latitude', 'longitude', 'speed_kmh').iterator(chunk_size=2000):
+                    point = (latitude, longitude)
+                    if previous_point:
+                        distance_km += haversine_km(previous_point[0], previous_point[1], latitude, longitude)
+                    previous_point = point
+                    if speed is not None and speed > 0:
+                        speed_total += speed
+                        speed_count += 1
+                        peak_speed = max(peak_speed, speed)
+                response_data['summary'] = {
+                    'first_seen': first,
+                    'last_seen': last,
+                    'gps_points': gps_points.count(),
+                    'distance_km': round(distance_km, 2),
+                    'average_speed_kmh': round(speed_total / speed_count, 1) if speed_count else None,
+                    'peak_speed_kmh': round(peak_speed, 1) if speed_count else None,
+                }
+            return Response(response_data)
 
         # Ventana de tiempo configurable via ?window=<minutos> (default: 20)
         try:
@@ -888,12 +939,43 @@ class TrackingViewSet(viewsets.ModelViewSet):
         except Passenger.DoesNotExist:
             return Response({'detail': 'Pasajero no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
+        if not route.passengers.filter(pk=passenger.pk).exists():
+            return Response(
+                {'detail': 'El pasajero no está asignado a esta ruta.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        pickup_has_coordinates = (
+            passenger.pickup_lat is not None
+            and passenger.pickup_lng is not None
+            and math.isfinite(passenger.pickup_lat)
+            and math.isfinite(passenger.pickup_lng)
+            and -90 <= passenger.pickup_lat <= 90
+            and -180 <= passenger.pickup_lng <= 180
+        )
+        if pickup_has_coordinates:
+            event_latitude = passenger.pickup_lat
+            event_longitude = passenger.pickup_lng
+        else:
+            latest_position = (
+                Tracking.objects.filter(route=route, passenger__isnull=True)
+                .order_by('-timestamp', '-id')
+                .first()
+            )
+            if latest_position is None:
+                return Response(
+                    {'detail': 'No hay coordenadas de parada ni una posición GPS para registrar este evento.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            event_latitude = latest_position.latitude
+            event_longitude = latest_position.longitude
+
         tracking, created = Tracking.objects.get_or_create(
             route=route,
             passenger=passenger,
             defaults={
-                'latitude': 0.0,
-                'longitude': 0.0,
+                'latitude': event_latitude,
+                'longitude': event_longitude,
                 'status': new_status,
             }
         )
@@ -1310,6 +1392,11 @@ class RouteRatingViewSet(viewsets.ModelViewSet):
     serializer_class = RouteRatingSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [IsDriver()]
+        return [permissions.IsAuthenticated()]
+
     def get_queryset(self):
         user = self.request.user
         if user.role == 'admin':
@@ -1321,13 +1408,22 @@ class RouteRatingViewSet(viewsets.ModelViewSet):
         return RouteRating.objects.filter(driver=user)
 
     def perform_create(self, serializer):
-        route_id = serializer.validated_data.get('route').id
-        # Upsert: si ya existe una calificacion del mismo conductor para esta ruta, actualiza
-        RouteRating.objects.update_or_create(
-            route_id=route_id,
+        route = serializer.validated_data['route']
+        if route.driver_id is None or route.driver.user_id != self.request.user.pk:
+            raise PermissionDenied('Solo puedes calificar una ruta asignada a tu usuario.')
+
+        rating, _ = RouteRating.objects.update_or_create(
+            route=route,
             driver=self.request.user,
             defaults={
                 'stars': serializer.validated_data['stars'],
                 'comment': serializer.validated_data.get('comment', ''),
-            }
+            },
         )
+        serializer.instance = rating
+
+    def perform_update(self, serializer):
+        route = serializer.validated_data.get('route', serializer.instance.route)
+        if route.driver_id is None or route.driver.user_id != self.request.user.pk:
+            raise PermissionDenied('Solo puedes calificar una ruta asignada a tu usuario.')
+        serializer.save()

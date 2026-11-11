@@ -3,7 +3,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Driver, Passenger, Route, Tracking, User
+from .models import Driver, Passenger, Route, RouteRating, Tracking, User
 
 
 @override_settings(TRACKING_INGEST_TOKEN='gps-demo-token')
@@ -417,6 +417,74 @@ class TrackingStatusValidationTests(APITestCase):
             response.status_code,
             status.HTTP_400_BAD_REQUEST,
         )
+
+
+class TrackingPassengerAssignmentTests(APITestCase):
+    def setUp(self):
+        self.driver_user = User.objects.create_user(username='driver_pickup', password='secreto123', role='driver')
+        self.driver = Driver.objects.create(user=self.driver_user, license_number='DRV-PICKUP')
+        self.route = Route.objects.create(name='Ruta asignada', origin='Centro', destination='Colegio', driver=self.driver)
+        self.passenger = Passenger.objects.create(
+            user=User.objects.create_user(username='passenger_pickup', password='secreto123', role='user'),
+            phone='3001234567', pickup_address='Parada registrada', pickup_lat=3.89, pickup_lng=-77.03,
+        )
+        self.client.force_authenticate(user=self.driver_user)
+
+    def test_driver_cannot_update_passenger_outside_assigned_route(self):
+        response = self.client.post('/api/tracking/update_status_by_passenger/', {
+            'route_id': self.route.id,
+            'passenger_id': self.passenger.id,
+            'status': 'picked',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(Tracking.objects.filter(route=self.route, passenger=self.passenger).exists())
+
+    def test_pickup_event_uses_passenger_stop_coordinates(self):
+        self.route.passengers.add(self.passenger)
+        response = self.client.post('/api/tracking/update_status_by_passenger/', {
+            'route_id': self.route.id,
+            'passenger_id': self.passenger.id,
+            'status': 'picked',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        tracking = Tracking.objects.get(route=self.route, passenger=self.passenger)
+        self.assertEqual(tracking.latitude, self.passenger.pickup_lat)
+        self.assertEqual(tracking.longitude, self.passenger.pickup_lng)
+        self.assertNotEqual((tracking.latitude, tracking.longitude), (0.0, 0.0))
+
+
+class RouteRatingAuthorizationTests(APITestCase):
+    def setUp(self):
+        self.driver_user = User.objects.create_user(username='driver_rating', password='secreto123', role='driver')
+        self.driver = Driver.objects.create(user=self.driver_user, license_number='DRV-RATING')
+        self.other_driver_user = User.objects.create_user(username='other_driver_rating', password='secreto123', role='driver')
+        self.other_driver = Driver.objects.create(user=self.other_driver_user, license_number='DRV-OTHER-RATING')
+        self.route = Route.objects.create(name='Ruta propia', origin='Centro', destination='Colegio', driver=self.driver)
+        self.other_route = Route.objects.create(name='Ruta ajena', origin='Puerto', destination='Terminal', driver=self.other_driver)
+
+    def test_driver_cannot_rate_route_assigned_to_another_driver(self):
+        self.client.force_authenticate(user=self.driver_user)
+        response = self.client.post('/api/route-ratings/', {
+            'route': self.other_route.id,
+            'stars': 5,
+            'comment': 'Calificación no autorizada',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(RouteRating.objects.filter(route=self.other_route).exists())
+
+    def test_passenger_cannot_create_route_rating(self):
+        passenger = User.objects.create_user(username='passenger_rating', password='secreto123', role='user')
+        self.client.force_authenticate(user=passenger)
+        response = self.client.post('/api/route-ratings/', {
+            'route': self.route.id,
+            'stars': 4,
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(RouteRating.objects.exists())
 
 class RouteNotFoundTests(APITestCase):
     def setUp(self):

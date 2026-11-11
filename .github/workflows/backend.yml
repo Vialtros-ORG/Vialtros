@@ -16,16 +16,16 @@ jobs:
         run: docker build -t vialtros-backend:${{ github.sha }} ./backend
 
       - name: Run Django checks inside container
-        run: docker run --rm vialtros-backend:${{ github.sha }} python manage.py check
+        run: docker run --rm -e DJANGO_SECRET_KEY=ci-only-secret-key vialtros-backend:${{ github.sha }} python manage.py check
 
       - name: Run backend tests inside container
-        run: docker run --rm vialtros-backend:${{ github.sha }} python manage.py test
+        run: docker run --rm -e DJANGO_SECRET_KEY=ci-only-secret-key vialtros-backend:${{ github.sha }} python manage.py test
 
       - name: Smoke test container startup
         run: |
           container_name=vialtros-backend-smoke
           trap 'docker rm -f "$container_name" >/dev/null 2>&1 || true' EXIT
-          docker run -d --name "$container_name" vialtros-backend:${{ github.sha }}
+          docker run -d --name "$container_name" -e DJANGO_SECRET_KEY=ci-only-secret-key vialtros-backend:${{ github.sha }}
 
           for attempt in {1..30}; do
             if docker exec "$container_name" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/admin/login/', timeout=2)"; then
