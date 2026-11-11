@@ -1,0 +1,11 @@
+node_modules/
+.browsers/
+.playwright-cli/
+.playwright-recorder-test-results/
+.playwright-route-test-results/
+playwright-report/
+test-results/
+recording-requests/
+playwright.config.*
+*.pending.spec.ts
+playwright-scripts/.recording/

@@ -45,4 +45,3 @@
 .vialtros-app[data-theme="dark"] .vt-recovery-panel [class*="border-blue-"] { border-color: #355760 !important; }
 @media(max-width:900px) { .vt-recovery-page { overflow:auto; } .vt-recovery-panel { min-height:100%; padding:32px 24px; } }
 @media(max-width:640px) { .vt-recovery-panel { padding:28px 20px 88px; } }
-\n
