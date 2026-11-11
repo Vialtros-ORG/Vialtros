@@ -62,7 +62,7 @@ function extractLocationUpdate(payload) {
   if (eventName === "position_update" || eventName === "tracking_update") {
     const nested = payload.data || payload.payload || payload.position;
     if (nested && typeof nested === "object") {
-      return nested;
+      return normalizeLocationPayload(nested) || nested;
     }
   }
 

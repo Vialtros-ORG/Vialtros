@@ -47,6 +47,27 @@ jobs:
             vialtros-sonar-backend \
             -c "python -m pip install --only-binary=:all: coverage==7.10.6 && coverage run --branch --source=core,tracking,users manage.py test && coverage xml -o /coverage/coverage.xml"
 
+      - name: Normalize backend coverage paths for Sonar
+        run: |
+          python - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          report = Path("backend/coverage-output/coverage.xml")
+          tree = ET.parse(report)
+          root = tree.getroot()
+          sources = root.find("sources")
+          if sources is not None:
+              for source in sources:
+                  source.text = os.environ["GITHUB_WORKSPACE"]
+          for item in root.iter("class"):
+              filename = item.get("filename", "")
+              if filename and not filename.startswith("backend/"):
+                  item.set("filename", f"backend/{filename}")
+          tree.write(report, encoding="utf-8", xml_declaration=True)
+          PY
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
