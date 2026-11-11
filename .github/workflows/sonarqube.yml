@@ -28,26 +28,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.14'
-
-      - name: Install backend dependencies and coverage
-        working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt coverage
-
       - name: Generate an ephemeral Django key
         shell: bash
         run: echo "DJANGO_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" >> "$GITHUB_ENV"
 
+      - name: Build backend image for coverage
+        run: docker build -t vialtros-sonar-backend ./backend
+
       - name: Run backend tests with coverage
-        working-directory: backend
         run: |
-          coverage run --branch --source=core,tracking,users manage.py test
-          coverage xml -o coverage.xml
+          mkdir -p backend/coverage-output
+          docker run --rm --entrypoint sh \
+            -v "$GITHUB_WORKSPACE/backend/coverage-output:/coverage" \
+            -e DJANGO_SECRET_KEY \
+            vialtros-sonar-backend \
+            -c "python -m pip install --only-binary=:all: coverage==7.10.6 && coverage run --branch --source=core,tracking,users manage.py test && coverage xml -o /coverage/coverage.xml"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
