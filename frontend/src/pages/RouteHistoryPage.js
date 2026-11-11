@@ -154,7 +154,10 @@ export default function RouteHistoryPage({ role, onLogout }) {
                   <ol className="vt-history-events">
                     {events.map((event, index) => {
                       const isPassengerEvent = Boolean(event.passenger);
-                      const coordinates = Number.isFinite(Number(event.latitude)) && Number.isFinite(Number(event.longitude))
+                      const hasCoordinates = event.latitude != null && event.latitude !== ""
+                        && event.longitude != null && event.longitude !== ""
+                        && Number.isFinite(Number(event.latitude)) && Number.isFinite(Number(event.longitude));
+                      const coordinates = hasCoordinates
                         ? `${Number(event.latitude).toFixed(5)}, ${Number(event.longitude).toFixed(5)}`
                         : "Ubicación no disponible";
                       return <li key={event.id || `${event.timestamp}-${index}`}>
