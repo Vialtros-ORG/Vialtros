@@ -30,13 +30,16 @@ jobs:
       POSTGRES_DB: vialtros
       POSTGRES_USER: vialtros
       POSTGRES_PASSWORD: ci-only-password
-      DJANGO_SECRET_KEY: ci-only-secret-key
       DJANGO_DEBUG: "True"
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Generate an ephemeral Django key for CI
+        shell: bash
+        run: echo "DJANGO_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" >> "$GITHUB_ENV"
 
       - name: Validate Compose configuration
         run: docker compose config --quiet

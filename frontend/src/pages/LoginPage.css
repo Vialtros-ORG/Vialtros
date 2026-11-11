@@ -96,7 +96,6 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  color: inherit;
   text-decoration: none;
 }
 .vt-login-brand:hover,.vt-login-mobile-brand:hover { opacity: .88; }

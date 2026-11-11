@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import secrets
 from datetime import timedelta
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
@@ -34,7 +35,7 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '').strip()
 if not SECRET_KEY:
     if DEBUG:
-        SECRET_KEY = 'django-insecure-local-development-only'
+        SECRET_KEY = secrets.token_urlsafe(64)
     else:
         raise ImproperlyConfigured('DJANGO_SECRET_KEY es obligatorio cuando DJANGO_DEBUG=False.')
 

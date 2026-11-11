@@ -228,6 +228,7 @@ export default function LandingPage() {
                 preload="metadata"
                 poster={landingPoster}
                 aria-hidden="true"
+                tabIndex={-1}
                 onPlay={() => setVideoReady(true)}
                 onPause={() => {
                   setVideoReady(false);
