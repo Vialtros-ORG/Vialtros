@@ -5,14 +5,14 @@ import { clearSession, ensureLocalAccessSession, getCurrentUser, isLocalAccessEn
 
 let mockInitialEntries = ["/"];
 jest.mock("./services/auth", () => ({
-  getCurrentUser: jest.fn(), clearSession: jest.fn(() => localStorage.clear()), ensureLocalAccessSession: jest.fn(), isLocalAccessEnabled: jest.fn(),
+  getCurrentUser: jest.fn(), clearSession: jest.fn(() => globalThis.localStorage.clear()), ensureLocalAccessSession: jest.fn(), isLocalAccessEnabled: jest.fn(),
 }));
 jest.mock("./context/NotificationContext", () => ({ NotificationProvider: ({ children }) => <>{children}</> }));
 jest.mock("./context/GoogleMapsContext", () => ({ GoogleMapsProvider: ({ children }) => <>{children}</> }));
 jest.mock("./context/ThemeContext", () => ({ useAppTheme: () => ({ resolvedTheme: "light" }) }));
 jest.mock("./components/notifications/NotificationToast", () => () => <div>Notificaciones</div>);
 jest.mock("./pages/LandingPage", () => () => <main><h1>Landing</h1><a href="/login">Acceder</a></main>);
-jest.mock("./pages/LoginPage", () => ({ onLogin }) => <main><h1>Login</h1><button type="button" onClick={() => { localStorage.setItem("access", "test-token"); onLogin(); }}>Autenticar</button></main>);
+jest.mock("./pages/LoginPage", () => ({ onLogin }) => <main><h1>Login</h1><button type="button" onClick={() => { globalThis.localStorage.setItem("access", "test-token"); onLogin(); }}>Autenticar</button></main>);
 jest.mock("./pages/DashboardPage", () => ({ role }) => <main><h1>Dashboard {role}</h1><a href="/profile">Perfil</a></main>);
 jest.mock("./pages/TrackingPage", () => () => <main>Tracking</main>);
 jest.mock("./pages/AdminUsersPage", () => () => <main>Usuarios</main>);
@@ -34,7 +34,7 @@ jest.mock("./pages/SettingsScreen", () => () => <main>Ajustes</main>);
 jest.mock("./pages/RouteReportPage", () => () => <main>Reporte</main>);
 jest.mock("./components/PrivateRoute", () => ({ children }) => {
   const { Navigate } = jest.requireMock("react-router-dom");
-  return localStorage.getItem("access") ? <>{children}</> : <Navigate to="/login" replace />;
+  return globalThis.localStorage.getItem("access") ? <>{children}</> : <Navigate to="/login" replace />;
 });
 jest.mock("react-router-dom", () => {
   const React = require("react");
@@ -91,7 +91,7 @@ async function renderApp(path = "/") {
 describe("App routing and session lifecycle", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    localStorage.clear();
+    globalThis.localStorage.clear();
     mockInitialEntries = ["/"];
     ensureLocalAccessSession.mockReturnValue(false);
     isLocalAccessEnabled.mockReturnValue(false);
@@ -105,7 +105,7 @@ describe("App routing and session lifecycle", () => {
     await act(async () => view.container.querySelector("button").click());
     await act(async () => { for (let index = 0; index < 6; index += 1) await Promise.resolve(); });
     expect(view.container.textContent).toContain("Dashboard driver");
-    expect(localStorage.getItem("role")).toBe("driver");
+    expect(globalThis.localStorage.getItem("role")).toBe("driver");
     await view.unmount();
   });
 
@@ -116,12 +116,12 @@ describe("App routing and session lifecycle", () => {
   });
 
   it("loads the stored session role before rendering the protected dashboard", async () => {
-    localStorage.setItem("access", "valid-token");
+    globalThis.localStorage.setItem("access", "valid-token");
     const view = await renderApp("/dashboard");
     await act(async () => { for (let index = 0; index < 6; index += 1) await Promise.resolve(); });
     expect(clearSession).not.toHaveBeenCalled();
     expect(view.container.textContent).toContain("Dashboard driver");
-    expect(localStorage.getItem("role")).toBe("driver");
+    expect(globalThis.localStorage.getItem("role")).toBe("driver");
     await view.unmount();
   });
 
