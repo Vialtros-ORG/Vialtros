@@ -49,6 +49,7 @@ jobs:
 
       - name: Normalize backend coverage paths for Sonar
         run: |
+          sudo chown -R "$(id -u):$(id -g)" backend/coverage-output
           python - <<'PY'
           import os
           import xml.etree.ElementTree as ET
