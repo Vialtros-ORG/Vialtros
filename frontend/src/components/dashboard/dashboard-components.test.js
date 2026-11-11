@@ -2,7 +2,11 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ActivityFeed from "./ActivityFeed";
 import StatCard from "./StatCard";
+import HeroCard from "./HeroCard";
 import { icons } from "./icons";
+import useTrackingRoute from "./useTrackingRoute";
+
+jest.mock("./useTrackingRoute", () => jest.fn());
 
 jest.mock("react-router-dom", () => ({
   Link: ({ to, children, ...props }) => require("react").createElement("a", { href: to, ...props }, children),
@@ -13,6 +17,32 @@ function renderMarkup(element) {
 }
 
 describe("dashboard visual components", () => {
+  beforeEach(() => {
+    window.matchMedia = jest.fn().mockReturnValue({ matches: false });
+  });
+
+  it("shows role-specific journey labels and available tracking actions", () => {
+    useTrackingRoute.mockReturnValue({ trackingLink: "/tracking/42", trackingEnabled: true });
+
+    expect(renderMarkup(<HeroCard role="admin" />)).toContain("Centro de rutas");
+    expect(renderMarkup(<HeroCard role="driver" />)).toContain("Tu jornada");
+    expect(renderMarkup(<HeroCard role="user" />)).toContain("Tu recorrido");
+    expect(renderMarkup(<HeroCard role="unknown" />)).toContain("Tu recorrido");
+
+    const enabled = renderMarkup(<HeroCard role="driver" />);
+    expect(enabled).toContain('href="/tracking/42"');
+    expect(enabled).toContain("Abrir mapa");
+  });
+
+  it("explains why tracking cannot open when the role has no assigned route", () => {
+    useTrackingRoute.mockReturnValue({ trackingLink: "/tracking/1", trackingEnabled: false });
+
+    expect(renderMarkup(<HeroCard role="admin" />)).toContain("No hay rutas registradas");
+    expect(renderMarkup(<HeroCard role="driver" />)).toContain("No tienes rutas asignadas");
+    expect(renderMarkup(<HeroCard role="user" />)).toContain("No tienes ruta asignada");
+    expect(renderMarkup(<HeroCard role="driver" />)).toContain("disabled=");
+  });
+
   it("renders activity loading, empty states by role, and recent items", () => {
     const loading = renderMarkup(<ActivityFeed loading />);
     expect(loading).toContain("role=\"status\"");
