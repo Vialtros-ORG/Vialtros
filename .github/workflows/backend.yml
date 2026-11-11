@@ -17,7 +17,10 @@ jobs:
 
       - name: Generate an ephemeral Django key for CI
         shell: bash
-        run: echo "DJANGO_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" >> "$GITHUB_ENV"
+        run: |
+          DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(64))')"
+          echo "::add-mask::$DJANGO_SECRET_KEY"
+          echo "DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY" >> "$GITHUB_ENV"
 
       - name: Run Django checks inside container
         run: docker run --rm -e DJANGO_SECRET_KEY vialtros-backend:${{ github.sha }} python manage.py check
