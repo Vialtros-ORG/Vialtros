@@ -1,4 +1,6 @@
 import React from "react";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useGoogleMaps } from "../context/GoogleMapsContext";
 import MapView from "./MapView";
@@ -9,8 +11,9 @@ jest.mock("../context/GoogleMapsContext", () => ({
 
 jest.mock("@react-google-maps/api", () => {
   const ReactRuntime = require("react");
-  const GoogleMap = ({ children, options }) =>
-    ReactRuntime.createElement(
+  const GoogleMap = ({ children, options, onClick }) => {
+    if (onClick) globalThis.__mapViewClick = onClick;
+    return ReactRuntime.createElement(
       "section",
       {
         "data-map": "ready",
@@ -19,6 +22,7 @@ jest.mock("@react-google-maps/api", () => {
       },
       children,
     );
+  };
   const Polyline = ({ options, path }) =>
     ReactRuntime.createElement("i", {
       "data-line": options?.strokeColor,
@@ -35,6 +39,8 @@ const plannedPath = [
   [3.89, -77.02],
   [3.9, -77.01],
 ];
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("MapView route presentation", () => {
   beforeEach(() => {
@@ -114,6 +120,35 @@ describe("MapView route presentation", () => {
     const errorMarkup = renderToStaticMarkup(<MapView />);
     expect(errorMarkup).toContain("map-error-placeholder");
     expect(errorMarkup).toContain("No se pudo cargar Google Maps");
+  });
+
+  it("resolves a clicked map location and falls back when geocoding rejects", async () => {
+    const geocode = jest.fn()
+      .mockResolvedValueOnce({ results: [{ formatted_address: "Buenaventura, Colombia" }] })
+      .mockRejectedValueOnce(new Error("Geocoder unavailable"));
+    window.google = { maps: { Geocoder: jest.fn(() => ({ geocode })) } };
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<MapView />));
+
+    await act(async () => {
+      globalThis.__mapViewClick({ latLng: { lat: () => 3.88, lng: () => -77.03 } });
+      await Promise.resolve();
+    });
+    expect(container.querySelector(".map-click-popup-address").textContent).toBe("Buenaventura, Colombia");
+
+    await act(async () => {
+      globalThis.__mapViewClick({ latLng: { lat: () => 3.89, lng: () => -77.02 } });
+      await Promise.resolve();
+    });
+    expect(container.querySelector(".map-click-popup-address").textContent).toBe("3.890000, -77.020000");
+
+    await act(async () => root.unmount());
+    container.remove();
+    delete globalThis.__mapViewClick;
+    delete window.google;
   });
 
   it("limits the live legend and ETA to the active user's role", () => {
