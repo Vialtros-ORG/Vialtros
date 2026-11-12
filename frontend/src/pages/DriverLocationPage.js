@@ -10,6 +10,7 @@ import {
   getStreetRoute,
   snapPointToRoad,
 } from "../services/routing";
+import { getStoredRouteCoordinates } from "../services/routeCoordinates";
 
 const GUIDED_ROUTE_SPEED_KMH = 24;
 const GUIDED_ROUTE_STEP_MS = 4500;
@@ -360,19 +361,14 @@ export default function DriverLocationPage({ role, onLogout }) {
     setStatusText("Calculando la ruta real para iniciar el recorrido...");
 
     try {
+      const storedOrigin = getStoredRouteCoordinates(selectedRoute, "origin");
+      const storedDestination = getStoredRouteCoordinates(
+        selectedRoute,
+        "destination",
+      );
       const [originCoords, destinationCoords] = await Promise.all([
-        selectedRoute.origin_lat != null &&
-        selectedRoute.origin_lng != null &&
-        Number.isFinite(Number(selectedRoute.origin_lat)) &&
-        Number.isFinite(Number(selectedRoute.origin_lng))
-          ? Promise.resolve([Number(selectedRoute.origin_lat), Number(selectedRoute.origin_lng)])
-          : geocodeAddress(selectedRoute.origin),
-        selectedRoute.destination_lat != null &&
-        selectedRoute.destination_lng != null &&
-        Number.isFinite(Number(selectedRoute.destination_lat)) &&
-        Number.isFinite(Number(selectedRoute.destination_lng))
-          ? Promise.resolve([Number(selectedRoute.destination_lat), Number(selectedRoute.destination_lng)])
-          : geocodeAddress(selectedRoute.destination),
+        storedOrigin || geocodeAddress(selectedRoute.origin),
+        storedDestination || geocodeAddress(selectedRoute.destination),
       ]);
 
       const streetRoute =

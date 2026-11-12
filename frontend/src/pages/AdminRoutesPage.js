@@ -12,6 +12,11 @@ import {
   getPassengers,
 } from "../services/admin";
 import { geocodeAddress } from "../services/routing";
+import {
+  hasCoordinatePair,
+  isValidCoordinatePair,
+  resolveCoordinatePair,
+} from "../services/routeCoordinates";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 
 const EMPTY_FORM = {
@@ -104,10 +109,11 @@ export default function AdminRoutesPage({ role, onLogout }) {
     setSaving(true);
     setFormError("");
     try {
-      const originHadCoords =
-        form.origin_lat != null && form.origin_lng != null;
-      const destHadCoords =
-        form.destination_lat != null && form.destination_lng != null;
+      const originHadCoords = hasCoordinatePair(form.origin_lat, form.origin_lng);
+      const destHadCoords = hasCoordinatePair(
+        form.destination_lat,
+        form.destination_lng,
+      );
 
       // Geocodificar en paralelo solo los campos sin coordenadas
       const [originResolved, destResolved] = await Promise.all([
@@ -119,42 +125,22 @@ export default function AdminRoutesPage({ role, onLogout }) {
           : geocodeAddress(form.destination.trim()).catch(() => null),
       ]);
 
-      let originLat = originHadCoords
-        ? form.origin_lat
-        : Array.isArray(originResolved)
-          ? originResolved[0]
-          : null;
-      let originLng = originHadCoords
-        ? form.origin_lng
-        : Array.isArray(originResolved)
-          ? originResolved[1]
-          : null;
-      let destLat = destHadCoords
-        ? form.destination_lat
-        : Array.isArray(destResolved)
-          ? destResolved[0]
-          : null;
-      let destLng = destHadCoords
-        ? form.destination_lng
-        : Array.isArray(destResolved)
-          ? destResolved[1]
-          : null;
+      const [originLat, originLng] = resolveCoordinatePair(
+        form.origin_lat,
+        form.origin_lng,
+        originResolved,
+      ) || [null, null];
+      const [destLat, destLng] = resolveCoordinatePair(
+        form.destination_lat,
+        form.destination_lng,
+        destResolved,
+      ) || [null, null];
 
-      const validCoordinate = (lat, lng) =>
-        lat != null &&
-        lng != null &&
-        Number.isFinite(Number(lat)) &&
-        Number.isFinite(Number(lng)) &&
-        Number(lat) >= -90 &&
-        Number(lat) <= 90 &&
-        Number(lng) >= -180 &&
-        Number(lng) <= 180;
-
-      if (!validCoordinate(originLat, originLng)) {
+      if (!isValidCoordinatePair([originLat, originLng])) {
         setFormError("No se pudo ubicar el origen. Selecciona una sugerencia de dirección válida.");
         return;
       }
-      if (!validCoordinate(destLat, destLng)) {
+      if (!isValidCoordinatePair([destLat, destLng])) {
         setFormError("No se pudo ubicar el destino. Selecciona una sugerencia de dirección válida.");
         return;
       }
