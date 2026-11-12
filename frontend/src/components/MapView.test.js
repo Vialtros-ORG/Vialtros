@@ -193,4 +193,34 @@ describe("MapView route presentation", () => {
     expect(markup).toContain('class="ep-val">—');
     expect(markup).not.toContain('id="lic-tag"');
   });
+
+  it("formats long distances and avoids repeating instruction-like street names", () => {
+    const markup = renderToStaticMarkup(
+      <MapView
+        gpsMode
+        destinationName="Terminal Pacífico"
+        navigationSteps={[
+          { type: "turn", modifier: "left", name: "Continúa por la Avenida 6", location: [3.9, -77.02] },
+        ]}
+        vehiclePosition={{ latitude: 3.89, longitude: -77.02 }}
+      />,
+    );
+
+    expect(markup).toContain("en 1.1 km");
+    expect(markup).toContain('id="turn-name">Gira a la izquierda</div>');
+    expect(markup).not.toContain("Continúa por la Avenida 6");
+  });
+
+  it("keeps the GPS distance label in route when the vehicle is at the next step", () => {
+    const markup = renderToStaticMarkup(
+      <MapView
+        gpsMode
+        navigationSteps={[{ type: "turn", modifier: "straight", location: [3.89, -77.02] }]}
+        vehiclePosition={{ latitude: 3.89, longitude: -77.02 }}
+      />,
+    );
+
+    expect(markup).toContain('id="turn-dist">En ruta');
+    expect(markup).toContain('id="turn-name">Continúa recto</div>');
+  });
 });
