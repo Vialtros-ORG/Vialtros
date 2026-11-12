@@ -151,4 +151,46 @@ describe("MapView route presentation", () => {
     expect(markup).not.toContain('class="map-legend');
     expect(markup).not.toContain('class="floating-eta ');
   });
+
+  it("shows GPS guidance, the nearest turn, vehicle speed, and ETA for a driver", () => {
+    const markup = renderToStaticMarkup(
+      <MapView
+        gpsMode
+        isDriver
+        eta={12}
+        destinationName="Terminal Pacífico"
+        navigationSteps={[
+          { type: "turn", modifier: "right", name: "Calle 5", location: [3.89, -77.019] },
+          { type: "turn", modifier: "left", name: "Avenida 10", location: [3.91, -77.01] },
+        ]}
+        plannedRoutePolyline={plannedPath}
+        vehiclePosition={{ latitude: 3.89, longitude: -77.02 }}
+        activeVehicles={[
+          { label: "VTL-208", status: "En ruta", speedKmh: 32 },
+          { label: "VTL-311", status: "Detenido", latitude: 3.9, longitude: -77.01 },
+          { label: "Sin coordenadas", status: "En ruta", latitude: "bad", longitude: -77 },
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("vt-gps-shell");
+    expect(markup).toContain("Gira a la derecha en Calle 5");
+    expect(markup).toContain('id="spd-val">32');
+    expect(markup).toContain("VTL-208");
+    expect(markup).toContain("12 min");
+    expect(markup).toContain("vt-marker-arrow-wrap");
+    expect(markup).not.toContain("Sin coordenadas");
+  });
+
+  it("uses destination and empty-state values when GPS has no instruction or ETA", () => {
+    const markup = renderToStaticMarkup(
+      <MapView gpsMode destinationName="Terminal Pacífico" />,
+    );
+
+    expect(markup).toContain("Terminal Pacífico");
+    expect(markup).toContain('id="turn-dist">En ruta');
+    expect(markup).toContain('id="eta-panel"');
+    expect(markup).toContain('class="ep-val">—');
+    expect(markup).not.toContain('id="lic-tag"');
+  });
 });
