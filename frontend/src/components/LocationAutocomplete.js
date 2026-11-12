@@ -100,6 +100,7 @@ export default function LocationAutocomplete({
   const [isLoading, setIsLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isFocused, setIsFocused] = useState(false);
+  const isListboxVisible = isOpen && predictions.length > 0;
 
   const autocompleteServiceRef = useRef(null);
   const placesServiceRef = useRef(null);
@@ -288,7 +289,7 @@ export default function LocationAutocomplete({
         disabled={disabled}
         role="combobox"
         aria-autocomplete="list"
-        aria-expanded={isOpen && predictions.length > 0}
+        aria-expanded={isListboxVisible}
         aria-controls={listboxId}
         aria-activedescendant={activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined}
       />
@@ -314,39 +315,46 @@ export default function LocationAutocomplete({
       ) : (
         inputEl
       )}
-      {isOpen && predictions.length > 0 && (
-        <div id={listboxId} className="lac-dropdown" role="listbox">
-          {predictions.map((prediction, index) => {
-            const iconKey = getPlaceIcon(prediction.types);
-            const main = prediction.structured_formatting?.main_text;
-            const secondary = prediction.structured_formatting?.secondary_text;
-            return (
-              <button
-                key={prediction.place_id}
-                id={`${listboxId}-option-${index}`}
-                type="button"
-                role="option"
-                aria-selected={index === activeIndex}
-                className={`lac-item${index === activeIndex ? " lac-item--active" : ""}`}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleSelect(prediction)}
-                onMouseEnter={() => setActiveIndex(index)}
-              >
-                <span className="lac-item-icon">{ICONS[iconKey] ?? ICONS.pin}</span>
-                <span className="lac-item-text">
-                  <span className="lac-item-main">{main ?? prediction.description}</span>
-                  {secondary && <span className="lac-item-secondary">{secondary}</span>}
-                </span>
-              </button>
-            );
-          })}
-          <div className="lac-attribution">
-            <svg height="10" viewBox="0 0 120 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Powered by Google">
-              <text x="0" y="11" fontSize="10" fill="#9ca3af" fontFamily="Arial, sans-serif">Powered by Google</text>
-            </svg>
-          </div>
-        </div>
-      )}
+      <div
+        id={listboxId}
+        className="lac-dropdown"
+        role="listbox"
+        hidden={!isListboxVisible}
+      >
+        {isListboxVisible && (
+          <>
+            {predictions.map((prediction, index) => {
+              const iconKey = getPlaceIcon(prediction.types);
+              const main = prediction.structured_formatting?.main_text;
+              const secondary = prediction.structured_formatting?.secondary_text;
+              return (
+                <button
+                  key={prediction.place_id}
+                  id={`${listboxId}-option-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={index === activeIndex}
+                  className={`lac-item${index === activeIndex ? " lac-item--active" : ""}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelect(prediction)}
+                  onMouseEnter={() => setActiveIndex(index)}
+                >
+                  <span className="lac-item-icon">{ICONS[iconKey] ?? ICONS.pin}</span>
+                  <span className="lac-item-text">
+                    <span className="lac-item-main">{main ?? prediction.description}</span>
+                    {secondary && <span className="lac-item-secondary">{secondary}</span>}
+                  </span>
+                </button>
+              );
+            })}
+            <div className="lac-attribution">
+              <svg height="10" viewBox="0 0 120 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Powered by Google">
+                <text x="0" y="11" fontSize="10" fill="#9ca3af" fontFamily="Arial, sans-serif">Powered by Google</text>
+              </svg>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
