@@ -3,7 +3,11 @@
 export function resolveWsBaseUrl() {
   const configuredWsUrl = process.env.REACT_APP_WS_URL?.trim();
   if (configuredWsUrl) {
-    return configuredWsUrl.replace(/\/+$/, "");
+    let end = configuredWsUrl.length;
+    while (end > 0 && configuredWsUrl[end - 1] === "/") {
+      end -= 1;
+    }
+    return configuredWsUrl.slice(0, end);
   }
 
   const apiUrl = process.env.REACT_APP_API_URL?.trim();

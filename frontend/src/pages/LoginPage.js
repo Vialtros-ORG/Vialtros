@@ -100,7 +100,7 @@ export default function LoginPage({ onLogin }) {
         onLogin();
       }
 
-      navigate("/dashboard", { replace: true });
+      void navigate("/dashboard", { replace: true });
     },
     [navigate, onLogin],
   );
@@ -110,7 +110,7 @@ export default function LoginPage({ onLogin }) {
       if (onLogin) {
         onLogin();
       }
-      navigate("/dashboard", { replace: true });
+      void navigate("/dashboard", { replace: true });
       return;
     }
 
@@ -124,7 +124,7 @@ export default function LoginPage({ onLogin }) {
       onLogin();
     }
 
-    navigate("/dashboard", { replace: true });
+    void navigate("/dashboard", { replace: true });
   }, [navigate, onLogin]);
 
   const handleSubmit = async (e) => {
@@ -147,7 +147,13 @@ export default function LoginPage({ onLogin }) {
       localStorage.setItem("refresh", res.data.refresh);
       localStorage.removeItem("role");
       // Pre-cargar datos del usuario en caché para que el perfil cargue instantáneo
-      getCurrentUser().then((u) => { if (u) saveUserCache(u); });
+      void getCurrentUser()
+        .then((user) => {
+          if (user) saveUserCache(user);
+        })
+        .catch(() => {
+          // El inicio de sesión no depende de precargar el perfil.
+        });
       finishLogin(normalizedUsername);
     } catch (err) {
       if (isLocalAccessEnabled()) {

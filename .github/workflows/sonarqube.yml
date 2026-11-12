@@ -20,6 +20,7 @@ permissions:
 jobs:
   analyze:
     name: Analyze code
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.base.ref == 'master' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -41,11 +42,12 @@ jobs:
       - name: Run backend tests with coverage
         run: |
           mkdir -p backend/coverage-output
+          chmod 777 backend/coverage-output
           docker run --rm --entrypoint sh \
             -v "$GITHUB_WORKSPACE/backend/coverage-output:/coverage" \
             -e DJANGO_SECRET_KEY \
             vialtros-sonar-backend \
-            -c "python -m pip install --only-binary=:all: coverage==7.10.6 && coverage run --branch --source=core,tracking,users manage.py test && coverage xml -o /coverage/coverage.xml"
+            -c "python -m pip install --only-binary=:all: coverage==7.10.6 && python -m coverage run --branch --source=core,tracking,users manage.py test && python -m coverage xml -o /coverage/coverage.xml"
 
       - name: Normalize backend coverage paths for Sonar
         run: |

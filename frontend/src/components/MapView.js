@@ -628,7 +628,7 @@ out center;`;
       lastPoisFetchCoordsRef.current = coords;
       const mapZoom = mapRef?.getZoom ? mapRef.getZoom() : 13;
       const radius = Math.max(600, Math.round(2000 * Math.pow(2, 13 - (mapZoom || 13)) / 4));
-      fetchPOIs(coords[0], coords[1], radius);
+      void fetchPOIs(coords[0], coords[1], radius);
     }, 5000);
     return () => { if (poisTimerRef.current) clearTimeout(poisTimerRef.current); };
   }, [vehiclePoint, mapRef, center, fetchPOIs, resolvePoiCoords]);
