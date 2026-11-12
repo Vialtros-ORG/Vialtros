@@ -100,4 +100,55 @@ describe("MapView route presentation", () => {
     expect(markup).not.toContain("data-line=");
     expect(markup).not.toContain('data-overlay="route-point"');
   });
+
+  it("shows loading and configuration states before the map is ready", () => {
+    useGoogleMaps.mockReturnValueOnce({ isLoaded: false, loadError: null, authError: null });
+    const loadingMarkup = renderToStaticMarkup(<MapView />);
+    expect(loadingMarkup).toContain("map-loading-placeholder");
+
+    useGoogleMaps.mockReturnValueOnce({
+      isLoaded: false,
+      loadError: new Error("Maps unavailable"),
+      authError: null,
+    });
+    const errorMarkup = renderToStaticMarkup(<MapView />);
+    expect(errorMarkup).toContain("map-error-placeholder");
+    expect(errorMarkup).toContain("No se pudo cargar Google Maps");
+  });
+
+  it("limits the live legend and ETA to the active user's role", () => {
+    const driverWaitingMarkup = renderToStaticMarkup(
+      <MapView isDriver gpsMode={false} routeActive={false} eta={8} />,
+    );
+    expect(driverWaitingMarkup).not.toContain('class="map-legend');
+    expect(driverWaitingMarkup).not.toContain('class="floating-eta ');
+
+    const passengerMarkup = renderToStaticMarkup(
+      <MapView isDriver={false} routeActive={false} eta={8} />,
+    );
+    expect(passengerMarkup).toContain('class="map-legend');
+    expect(passengerMarkup).toContain('class="floating-eta ');
+    expect(passengerMarkup).toContain('class="floating-eta-number">8');
+  });
+
+  it("renders highlighted overlays for admins without passenger navigation UI", () => {
+    const markup = renderToStaticMarkup(
+      <MapView
+        isAdmin
+        darkMode
+        eta={5}
+        highlightedRouteIds={[4]}
+        routeOverlays={[
+          { id: 4, polyline: plannedPath },
+          { id: 5, polyline: plannedPath.slice(1) },
+          { id: 6, polyline: [["invalid", 0], [3.9, -77]] },
+        ]}
+      />,
+    );
+
+    expect(markup).toContain('data-line="#42aeb8"');
+    expect(markup).toContain('data-line="#64c7cf"');
+    expect(markup).not.toContain('class="map-legend');
+    expect(markup).not.toContain('class="floating-eta ');
+  });
 });
