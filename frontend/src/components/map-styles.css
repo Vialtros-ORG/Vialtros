@@ -221,10 +221,10 @@
 .gps-overlay-en-ruta {
   font-size: 10px;
   font-weight: 700;
-  color: #2563eb;
+  color: #0b8290;
   line-height: 1.2;
   letter-spacing: 0.8px;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .gps-overlay-street {
@@ -292,7 +292,7 @@
 
 .gps-overlay-arrival-top {
   font-size: 11px;
-  color: #2563eb;
+  color: #0b8290;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -565,7 +565,7 @@
   color: #94a3b8;
   font-weight: 700;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: none;
   margin-top: 2px;
 }
 
@@ -670,7 +670,7 @@
   color: #64748b;
   font-weight: 700;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: none;
 }
 .ep-div { display: none; }
 #stop-nav {
@@ -734,12 +734,12 @@
   color: #9ca3af;
   font-weight: 600;
   letter-spacing: 0.8px;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .gps-overlay-arrival {
   font-size: 12px;
-  color: #2563eb;
+  color: #0b8290;
   font-weight: 500;
   margin-top: 3px;
 }
@@ -895,7 +895,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #2563EB;
+  background: #0b8290;
   border: 4px solid #ffffff;
   box-shadow:
     0 2px 8px rgba(37, 99, 235, 0.45),
@@ -916,7 +916,7 @@
 }
 
 .vt-route-point-start {
-  background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
+  background: linear-gradient(135deg, #3B82F6 0%, #095b68 100%);
 }
 
 .vt-route-point-start::after {
@@ -937,7 +937,7 @@
 
 .vt-route-point-end {
   border-radius: 5px;
-  background: linear-gradient(135deg, #1D4ED8 0%, #1e3a8a 100%);
+  background: linear-gradient(135deg, #095b68 0%, #102a33 100%);
 }
 
 .vt-route-stop-marker {
@@ -967,8 +967,8 @@
   height: 20px;
   border-radius: 999px;
   background: #ffffff;
-  border: 2.5px solid #2563EB;
-  color: #1D4ED8;
+  border: 2.5px solid #0b8290;
+  color: #095b68;
   font-size: 10px;
   font-weight: 800;
   line-height: 1;
@@ -977,7 +977,7 @@
 }
 
 .vt-route-stop-marker--active .vt-route-stop-core {
-  border-color: #1D4ED8;
+  border-color: #095b68;
   background: #EFF6FF;
   box-shadow: 0 2px 10px rgba(29, 78, 216, 0.35);
 }
@@ -1014,7 +1014,7 @@
 .vt-stop-tooltip-name {
   font-size: 11.5px;
   font-weight: 700;
-  color: #1E40AF;
+  color: #0b6e80;
   line-height: 1.3;
 }
 
@@ -1062,7 +1062,7 @@
 }
 
 .vt-vehicle-chip-moving {
-  background: linear-gradient(135deg, #1e40af, #2563EB);
+  background: linear-gradient(135deg, #0b6e80, #0b8290);
   color: #ffffff;
 }
 
@@ -1196,7 +1196,7 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #0b8290;
   border: 2.5px solid #ffffff;
   box-shadow: 0 2px 6px rgba(37, 99, 235, 0.5);
   position: relative;
@@ -1277,7 +1277,7 @@
 }
 
 .vt-marker-vehicle-icon-moving {
-  background: linear-gradient(145deg, #2563eb, #1d4ed8);
+  background: linear-gradient(145deg, #0b8290, #095b68);
   box-shadow: 0 3px 12px rgba(37, 99, 235, 0.45), 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
@@ -1375,7 +1375,7 @@
   font-weight: 800;
   color: #0f172a;
   letter-spacing: 0.07em;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .vt-vehicle-tooltip-status {
@@ -1431,11 +1431,17 @@
   min-width: 142px;
 }
 
+.map-legend-dark {
+  background: rgba(13, 31, 36, 0.94);
+  border-color: rgba(123, 177, 183, 0.22);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
 .legend-title {
-  color: #1e40af;
+  color: #0b6e80;
   font-size: 10px;
   font-weight: 800;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.1em;
   margin-bottom: 9px;
 }
@@ -1449,6 +1455,9 @@
   color: #374151;
   font-weight: 500;
 }
+
+.map-legend-dark .legend-item { color: #c4d7da; }
+.map-legend-dark .legend-title { color: #70cbd2; }
 
 .legend-item:last-child {
   margin-bottom: 0;
@@ -1464,52 +1473,52 @@
 }
 
 .legend-marker.vehicle-dot {
-  background: #2563eb;
+  background: #0b8290;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
 .legend-marker.current-dot {
-  background: #2563eb;
+  background: #0b8290;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
 .legend-marker.origin-dot {
-  background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+  background: linear-gradient(135deg, #3B82F6, #095b68);
 }
 
 .legend-marker.destination-dot {
-  background: linear-gradient(135deg, #1D4ED8, #1e3a8a);
+  background: linear-gradient(135deg, #095b68, #102a33);
   border-radius: 3px;
 }
 
 .legend-marker.stop-dot {
   background: #ffffff;
-  border: 2px solid #2563EB;
+  border: 2px solid #0b8290;
 }
 
 .legend-line {
   width: 16px;
   height: 3px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #2563eb, #1D4ED8);
+  background: linear-gradient(90deg, #0b8290, #095b68);
   flex-shrink: 0;
 }
 
 .legend-line.planned {
-  background: linear-gradient(90deg, #2563eb, #1D4ED8);
+  background: linear-gradient(90deg, #0b8290, #095b68);
 }
 
 .legend-line.remaining {
-  background: repeating-linear-gradient(
-    90deg,
-    #3B82F6 0 5px,
-    transparent 5px 9px
-  );
+  background: #008f9f;
+  box-shadow: 0 0 0 2px rgba(0, 143, 159, 0.16);
 }
 
 .legend-line.traveled {
-  background: linear-gradient(90deg, #64748b, #475569);
+  background: #075765;
 }
+
+.map-legend-dark .legend-line.remaining { background: #62d5df; }
+.map-legend-dark .legend-line.traveled { background: #669da2; }
 
 
 /* Panel de métricas */
@@ -1572,15 +1581,15 @@
 .route-metric-label {
   font-size: 9px;
   font-weight: 800;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.08em;
   color: #94a3b8;
 }
 
 /* Color por tipo de métrica — paleta azul de la app */
-.route-metric-tile--planif .route-metric-label { color: #2563eb; }
-.route-metric-tile--recorr .route-metric-label { color: #2563eb; }
-.route-metric-tile--pend   .route-metric-label { color: #2563eb; }
+.route-metric-tile--planif .route-metric-label { color: #0b8290; }
+.route-metric-tile--recorr .route-metric-label { color: #0b8290; }
+.route-metric-tile--pend   .route-metric-label { color: #0b8290; }
 
 .route-metric-tile--planif .route-metric-number { color: #0f172a; }
 .route-metric-tile--recorr .route-metric-number { color: #0f172a; }

@@ -1,5 +1,5 @@
 // Servicio para conexión WebSocket de monitoring administrativo
-import { resolveWsBaseUrl } from "./ws";
+import { getWebSocketProtocols, resolveWsBaseUrl } from "./ws";
 
 function parseMsg(raw) {
   try {
@@ -28,7 +28,7 @@ export function connectAdminMonitoring(onMessage, handlers = {}) {
 
   const connect = () => {
     const wsUrl = `${resolveWsBaseUrl()}/monitoring/`;
-    socket = new WebSocket(wsUrl);
+    socket = new WebSocket(wsUrl, getWebSocketProtocols());
 
     socket.onopen = () => {
       reconnectAttempts = 0;
@@ -64,13 +64,6 @@ export function connectAdminMonitoring(onMessage, handlers = {}) {
       closedManually = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (socket && socket.readyState <= 1) socket.close();
-    },
-    send: (payload) => {
-      if (!socket || socket.readyState !== WebSocket.OPEN) return false;
-      socket.send(
-        typeof payload === "string" ? payload : JSON.stringify(payload),
-      );
-      return true;
     },
     readyState: () => socket?.readyState ?? WebSocket.CLOSED,
   };

@@ -10,7 +10,7 @@ COPY . .
 
 RUN sed -i 's/\r$//' /app/entrypoint.sh \
     && chmod +x /app/entrypoint.sh \
-    && python manage.py collectstatic --noinput
+    && DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" python manage.py collectstatic --noinput
 
 EXPOSE 8000
 

@@ -1,0 +1,133 @@
+.vt-route-map {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: .68;
+}
+
+.vt-route-map--cta { z-index: 0; opacity: .48; }
+
+.vt-route-map > svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 54%, rgba(0, 0, 0, .45) 62%, #000 72%);
+  mask-image: linear-gradient(90deg, transparent 0%, transparent 54%, rgba(0, 0, 0, .45) 62%, #000 72%);
+}
+
+.vt-route-line {
+  color: #42c9d2;
+  opacity: .6;
+  transition: opacity .3s ease;
+}
+
+.vt-route-line--secondary { color: #49c7a0; }
+.vt-route-line.is-active { opacity: .98; }
+
+.vt-route-visible,
+.vt-route-hit {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.vt-route-visible {
+  stroke-width: 3;
+  stroke-dasharray: 2 18;
+  opacity: .58;
+  transition: opacity .3s ease, stroke-width .3s ease;
+}
+
+.vt-route-line.is-active .vt-route-visible {
+  stroke-width: 4;
+  stroke-dasharray: 15 13;
+  animation: vt-route-flow 2.8s linear infinite;
+  opacity: .95;
+}
+
+.vt-route-hit {
+  stroke: transparent;
+  stroke-width: 30;
+  pointer-events: stroke;
+  cursor: pointer;
+  outline: none;
+}
+
+.vt-route-hit:focus-visible { stroke: rgba(232, 242, 244, .28); }
+
+.vt-route-stop {
+  fill: #0d242b;
+  stroke: #57d4dc;
+  stroke-width: 4;
+  cursor: pointer;
+  pointer-events: all;
+  transition: r .22s ease, fill .22s ease, stroke .22s ease;
+}
+
+.vt-route-stop:nth-of-type(n+4) { stroke: #59d0ab; }
+.vt-route-stop.is-active { r: 9px; fill: #d4fcff; stroke-width: 3; }
+.vt-route-stop:focus-visible { stroke: #fff; stroke-width: 6; }
+
+.vt-route-vehicle { color: #bafaff; pointer-events: none; }
+.vt-route-vehicle--secondary { color: #a9f5d7; }
+.vt-route-vehicle rect:first-child,
+.vt-route-vehicle path { fill: currentColor; stroke: #10343a; stroke-width: 1.3; }
+.vt-route-vehicle .vt-route-window { fill: #16515a; stroke: none; }
+.vt-route-vehicle .vt-route-wheel { fill: #071317; stroke: #8ce8e8; stroke-width: 1; }
+.vt-route-vehicle--secondary .vt-route-wheel { stroke: #8ce7bf; }
+
+.vt-route-map-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+@keyframes vt-route-flow { to { stroke-dashoffset: -56; } }
+
+@media (max-width: 1100px) {
+  .vt-route-map > svg {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 62%, rgba(0, 0, 0, .5) 73%, #000 84%);
+    mask-image: linear-gradient(90deg, transparent 0%, transparent 62%, rgba(0, 0, 0, .5) 73%, #000 84%);
+  }
+}
+
+@media (max-width: 760px) {
+  .vt-route-map > svg {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 72%, rgba(0, 0, 0, .45) 83%, #000 94%);
+    mask-image: linear-gradient(90deg, transparent 0%, transparent 72%, rgba(0, 0, 0, .45) 83%, #000 94%);
+  }
+}
+
+.vt-route-map--cta > svg {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 40%, rgba(0, 0, 0, .4) 51%, #000 64%);
+  mask-image: linear-gradient(90deg, transparent 0%, transparent 40%, rgba(0, 0, 0, .4) 51%, #000 64%);
+}
+
+@media (max-width: 1100px) {
+  .vt-route-map--cta > svg {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 48%, rgba(0, 0, 0, .4) 60%, #000 73%);
+    mask-image: linear-gradient(90deg, transparent 0%, transparent 48%, rgba(0, 0, 0, .4) 60%, #000 73%);
+  }
+}
+
+@media (max-width: 760px) {
+  .vt-route-map--cta > svg {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 60%, rgba(0, 0, 0, .4) 74%, #000 88%);
+    mask-image: linear-gradient(90deg, transparent 0%, transparent 60%, rgba(0, 0, 0, .4) 74%, #000 88%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vt-route-line,
+  .vt-route-visible,
+  .vt-route-stop { transition: none; }
+  .vt-route-line.is-active .vt-route-visible { animation: none; }
+}

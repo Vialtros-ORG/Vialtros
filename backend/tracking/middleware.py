@@ -1,5 +1,4 @@
 import logging
-from urllib.parse import parse_qs
 
 from channels.db import database_sync_to_async
 from channels.middleware import BaseMiddleware
@@ -9,31 +8,38 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+JWT_SUBPROTOCOL_PREFIX = 'vialtros.jwt.'
 
 
 @database_sync_to_async
 def _resolve_user(token_key):
     try:
         token = AccessToken(token_key)
-        user = User.objects.get(pk=token["user_id"])
+        user = User.objects.get(pk=token["user_id"], is_active=True)
         logger.debug("[JwtAuthMiddleware] token valido — user_id=%s username=%s", user.pk, user.username)
         return user
     except Exception as exc:
-        logger.warning("[JwtAuthMiddleware] token invalido — %s", exc)
+        logger.warning("[JwtAuthMiddleware] token invalido (%s)", type(exc).__name__)
         return AnonymousUser()
 
 
 class JwtAuthMiddleware(BaseMiddleware):
-    """Popula scope['user'] desde el query param ?token= (JWT)."""
+    """Autentica WebSockets usando el subprotocolo, no la URL."""
 
     async def __call__(self, scope, receive, send):
         if scope.get("type") == "websocket":
-            query_string = scope.get("query_string", b"").decode()
-            query_params = parse_qs(query_string)
-            token_key = query_params.get("token", [None])[0]
+            token_key = next(
+                (
+                    protocol[len(JWT_SUBPROTOCOL_PREFIX):]
+                    for protocol in scope.get('subprotocols', [])
+                    if protocol.startswith(JWT_SUBPROTOCOL_PREFIX)
+                ),
+                None,
+            )
             path = scope.get("path", "?")
             if token_key:
                 scope["user"] = await _resolve_user(token_key)
             else:
+                scope["user"] = AnonymousUser()
                 logger.debug("[JwtAuthMiddleware] sin token JWT en %s", path)
         return await super().__call__(scope, receive, send)

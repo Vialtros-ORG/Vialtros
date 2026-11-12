@@ -11,7 +11,12 @@ import {
   getDrivers,
   getPassengers,
 } from "../services/admin";
-import { geocodeAddress, snapPointToRoad } from "../services/routing";
+import { geocodeAddress } from "../services/routing";
+import {
+  hasCoordinatePair,
+  isValidCoordinatePair,
+  resolveCoordinatePair,
+} from "../services/routeCoordinates";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 
 const EMPTY_FORM = {
@@ -104,10 +109,11 @@ export default function AdminRoutesPage({ role, onLogout }) {
     setSaving(true);
     setFormError("");
     try {
-      const originHadCoords =
-        form.origin_lat != null && form.origin_lng != null;
-      const destHadCoords =
-        form.destination_lat != null && form.destination_lng != null;
+      const originHadCoords = hasCoordinatePair(form.origin_lat, form.origin_lng);
+      const destHadCoords = hasCoordinatePair(
+        form.destination_lat,
+        form.destination_lng,
+      );
 
       // Geocodificar en paralelo solo los campos sin coordenadas
       const [originResolved, destResolved] = await Promise.all([
@@ -119,54 +125,24 @@ export default function AdminRoutesPage({ role, onLogout }) {
           : geocodeAddress(form.destination.trim()).catch(() => null),
       ]);
 
-      let originLat = originHadCoords
-        ? form.origin_lat
-        : Array.isArray(originResolved)
-          ? originResolved[0]
-          : null;
-      let originLng = originHadCoords
-        ? form.origin_lng
-        : Array.isArray(originResolved)
-          ? originResolved[1]
-          : null;
-      let destLat = destHadCoords
-        ? form.destination_lat
-        : Array.isArray(destResolved)
-          ? destResolved[0]
-          : null;
-      let destLng = destHadCoords
-        ? form.destination_lng
-        : Array.isArray(destResolved)
-          ? destResolved[1]
-          : null;
+      const [originLat, originLng] = resolveCoordinatePair(
+        form.origin_lat,
+        form.origin_lng,
+        originResolved,
+      ) || [null, null];
+      const [destLat, destLng] = resolveCoordinatePair(
+        form.destination_lat,
+        form.destination_lng,
+        destResolved,
+      ) || [null, null];
 
-      // Snap solo si las coords se obtuvieron por geocoding (no por sugerencia)
-      // Se ejecutan en paralelo
-      const needSnapOrigin =
-        !originHadCoords &&
-        Number.isFinite(originLat) &&
-        Number.isFinite(originLng);
-      const needSnapDest =
-        !destHadCoords &&
-        Number.isFinite(destLat) &&
-        Number.isFinite(destLng);
-
-      const [snappedOrigin, snappedDest] = await Promise.all([
-        needSnapOrigin
-          ? snapPointToRoad([originLat, originLng]).catch(() => null)
-          : null,
-        needSnapDest
-          ? snapPointToRoad([destLat, destLng]).catch(() => null)
-          : null,
-      ]);
-
-      if (Array.isArray(snappedOrigin)) {
-        originLat = snappedOrigin[0];
-        originLng = snappedOrigin[1];
+      if (!isValidCoordinatePair([originLat, originLng])) {
+        setFormError("No se pudo ubicar el origen. Selecciona una sugerencia de dirección válida.");
+        return;
       }
-      if (Array.isArray(snappedDest)) {
-        destLat = snappedDest[0];
-        destLng = snappedDest[1];
+      if (!isValidCoordinatePair([destLat, destLng])) {
+        setFormError("No se pudo ubicar el destino. Selecciona una sugerencia de dirección válida.");
+        return;
       }
 
       const payload = {
@@ -217,22 +193,6 @@ export default function AdminRoutesPage({ role, onLogout }) {
     const vb = String(getRouteVal(b, sortCol)).toLowerCase();
     return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
   });
-
-  const getPassengerPreview = (route) => {
-    if (
-      !Array.isArray(route.passenger_details) ||
-      route.passenger_details.length === 0
-    ) {
-      return "Sin pasajeros";
-    }
-
-    const names = route.passenger_details
-      .map((p) => p.user_detail?.username || `#${p.id}`)
-      .filter(Boolean);
-
-    if (names.length <= 2) return names.join(", ");
-    return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
-  };
 
   return (
     <div className="min-h-screen flex bg-gray-50 font-sans">

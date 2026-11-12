@@ -15,14 +15,15 @@ import {
   MdInfo,
 } from "react-icons/md";
 import api from "../../services/api";
+import { useAppTheme } from "../../context/ThemeContext";
 
 const TYPE_CONFIG = {
   route_started: {
     Icon: MdDirectionsBus,
     label: "Ruta iniciada",
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    border: "border-blue-200",
+    color: "text-teal-700",
+    bg: "bg-teal-50",
+    border: "border-teal-200",
   },
   student_picked_up: {
     Icon: MdPersonAdd,
@@ -40,44 +41,44 @@ const TYPE_CONFIG = {
   },
   approaching_stop: {
     Icon: MdLocationOn,
-    label: "Bus aproximandose a su parada",
+    label: "Bus aproximándose a su parada",
     color: "text-amber-600",
     bg: "bg-amber-50",
     border: "border-amber-200",
   },
   approaching_destination: {
     Icon: MdFlag,
-    label: "Bus aproximandose al destino",
-    color: "text-indigo-600",
-    bg: "bg-indigo-50",
-    border: "border-indigo-200",
+    label: "Bus aproximándose al destino",
+    color: "text-teal-700",
+    bg: "bg-teal-50",
+    border: "border-teal-200",
   },
   driver_near_stop: {
     Icon: MdWarning,
-    label: "Proximo a parada de estudiante",
+    label: "Próximo a la parada de un estudiante",
     color: "text-orange-600",
     bg: "bg-orange-50",
     border: "border-orange-200",
   },
   driver_near_destination: {
     Icon: MdOutlinedFlag,
-    label: "Proximo al destino final",
-    color: "text-purple-600",
-    bg: "bg-purple-50",
-    border: "border-purple-200",
+    label: "Próximo al destino final",
+    color: "text-teal-700",
+    bg: "bg-teal-50",
+    border: "border-teal-200",
   },
   message_from_user: {
     Icon: MdChat,
-    label: "Mensaje de padre de familia",
-    color: "text-sky-600",
-    bg: "bg-sky-50",
-    border: "border-sky-200",
+    label: "Mensaje del familiar",
+    color: "text-teal-700",
+    bg: "bg-teal-50",
+    border: "border-teal-200",
   },
 };
 
 const FALLBACK_CONFIG = {
   Icon: MdInfo,
-  label: "Notificacion",
+  label: "Notificación",
   color: "text-gray-600",
   bg: "bg-gray-50",
   border: "border-gray-200",
@@ -105,6 +106,7 @@ const CAN_SEND_MESSAGE_TYPES = [
 ];
 
 export default function NotificationDetailModal({ notification, onClose }) {
+  const { resolvedTheme } = useAppTheme();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -150,7 +152,7 @@ export default function NotificationDetailModal({ notification, onClose }) {
       onClick={handleOverlayClick}
       className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
     >
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div data-theme={resolvedTheme} className="vt-notification-detail w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className={`flex items-start justify-between gap-3 px-6 py-5 ${bg} border-b ${border}`}>
           <div className="flex items-center gap-3">
@@ -158,7 +160,7 @@ export default function NotificationDetailModal({ notification, onClose }) {
               <Icon className={`text-2xl ${color}`} />
             </div>
             <div>
-              <p className={`text-xs font-semibold uppercase tracking-wide ${color}`}>{label}</p>
+              <p className={`text-xs font-semibold tracking-wide ${color}`}>{label}</p>
               <p className="text-base font-bold text-gray-900 mt-0.5 leading-tight">
                 {notification.title}
               </p>

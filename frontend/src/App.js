@@ -1,5 +1,6 @@
 // App principal con rutas protegidas y flujo de login/logout
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react";
+import "./App.css";
 import {
   getCurrentUser,
   clearSession,
@@ -14,7 +15,7 @@ import {
   Routes,
   Route,
   Navigate,
-  Link,
+  useLocation,
 } from "react-router-dom";
 
 import LoginPage from "./pages/LoginPage";
@@ -29,17 +30,51 @@ import DriverRoutesPage from "./pages/DriverRoutesPage";
 import DriverLocationPage from "./pages/DriverLocationPage";
 import LandingPage from "./pages/LandingPage";
 import PrivateRoute from "./components/PrivateRoute";
-import { Logo } from "./components/Logo";
 import ActivityPage from "./pages/ActivityPage";
-import Footer from "./components/Footer";
 import PrivacyPage from "./pages/PrivacyPage";
 import TermsPage from "./pages/TermsPage";
 import SupportPage from "./pages/SupportPage";
 import ProfileScreen from "./pages/ProfileScreen";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import { useAppTheme } from "./context/ThemeContext";
+import RouteHistoryPage from "./pages/RouteHistoryPage";
+import SettingsScreen from "./pages/SettingsScreen";
+import RouteReportPage from "./pages/RouteReportPage";
+
+const PANEL_ROUTE_PATTERN = /^\/(dashboard|admin|user|driver|tracking|history|activity|settings|profile|routes)(\/|$)/;
+
+function PanelRouteTransition({ children }) {
+  const { pathname } = useLocation();
+  const containerRef = useRef(null);
+  const previousPathRef = useRef(pathname);
+
+  useLayoutEffect(() => {
+    const previousPath = previousPathRef.current;
+    previousPathRef.current = pathname;
+
+    if (previousPath === pathname || !PANEL_ROUTE_PATTERN.test(previousPath) || !PANEL_ROUTE_PATTERN.test(pathname)) {
+      return undefined;
+    }
+
+    const container = containerRef.current;
+    if (!container || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
+
+    container.classList.remove("is-entering");
+    const frameId = window.requestAnimationFrame(() => container.classList.add("is-entering"));
+    const timeoutId = window.setTimeout(() => container.classList.remove("is-entering"), 280);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [pathname]);
+
+  return <div ref={containerRef} className="vt-panel-route-transition">{children}</div>;
+}
 
 function App() {
+  const { resolvedTheme } = useAppTheme();
   const [isAuth, setIsAuth] = useState(() => {
     const token = localStorage.getItem("access");
     if (token) return true;
@@ -93,44 +128,24 @@ function App() {
     <GoogleMapsProvider>
     <NotificationProvider isAuth={isAuth} role={role}>
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <div className="bg-gray-100 h-screen flex flex-col overflow-hidden">
-        {isAuth && (
-          <nav className="bg-blue-800 text-white px-8 py-3.5 flex justify-between items-center shadow-lg flex-shrink-0 z-20">
-            <Link to="/dashboard" className="flex items-center">
-              <Logo variant="light" iconSize={36} />
-            </Link>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 text-sm font-medium text-white hover:text-red-600 transition px-3 py-2 rounded-lg hover:bg-red-50"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                Cerrar sesión
-              </button>
-            </div>
-          </nav>
-        )}
-        <div className="flex-1 min-h-0 overflow-auto flex flex-col">
+      <div className="vialtros-app" data-theme={resolvedTheme}>
+        <div className="vialtros-app-content">
           <div className="flex-1">
+          <PanelRouteTransition>
           <Routes>
             <Route
               path="/activity"
               element={
                 <PrivateRoute>
-                  <ActivityPage />
+                  <ActivityPage role={role} onLogout={handleLogout} />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/history"
+              element={
+                <PrivateRoute>
+                  <RouteHistoryPage role={role} onLogout={handleLogout} />
                 </PrivateRoute>
               }
             />
@@ -221,14 +236,16 @@ function App() {
               path="/driver/location"
               element={
                 <PrivateRoute>
-                  <DriverLocationPage role={role} />
+                  <DriverLocationPage role={role} onLogout={handleLogout} />
                 </PrivateRoute>
               }
             />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/support" element={<SupportPage />} />
-            <Route path="/profile" element={<ProfileScreen />} />
+            <Route path="/settings" element={<PrivateRoute><SettingsScreen role={role} onLogout={handleLogout} /></PrivateRoute>} />
+            <Route path="/profile" element={<PrivateRoute><ProfileScreen role={role} onLogout={handleLogout} /></PrivateRoute>} />
+            <Route path="/routes/:routeId/report" element={<PrivateRoute><RouteReportPage role={role} onLogout={handleLogout} /></PrivateRoute>} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
             <Route
@@ -236,8 +253,8 @@ function App() {
               element={<Navigate to={isAuth ? "/dashboard" : "/"} />}
             />
           </Routes>
+          </PanelRouteTransition>
           </div>
-          <Footer />
         </div>
       </div>
     </Router>

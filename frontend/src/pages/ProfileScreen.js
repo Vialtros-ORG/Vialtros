@@ -1,250 +1,157 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import SectionCard from "../components/dashboard/SectionCard";
-import { getCurrentUser, updateCurrentUser, getUserCache, saveUserCache } from "../services/auth";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Sidebar from "../components/dashboard/Sidebar";
+import { getCurrentUser, getUserCache, saveUserCache, updateCurrentUser } from "../services/auth";
 
-const DEFAULT_AVATAR =
-  "https://ui-avatars.com/api/?name=Usuario&background=2563eb&color=fff&size=128&rounded=true";
+const EMPTY_PROFILE = { first_name: "", last_name: "", username: "", email: "", phone_number: "" };
 
 function normalizeName(value) {
-  if (!value) return "";
-  return value.trim().replace(/\s+/g, " ")
-    .split(" ")
-    .map((word) => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : "")
-    .filter(Boolean)
+  return value.trim().replace(/\s+/g, " ").split(" ")
+    .map((word) => word ? word[0].toLocaleUpperCase("es-CO") + word.slice(1).toLocaleLowerCase("es-CO") : "")
     .join(" ");
 }
 
-export default function ProfileScreen() {
-  const [avatar, setAvatar] = useState(DEFAULT_AVATAR);
-  const [photoSavedMsg, setPhotoSavedMsg] = useState("");
-  const [user, setUser] = useState({
-    first_name: "",
-    last_name: "",
-    username: "",
-    email: "",
-    phone_number: "",
-  });
-  const [editMode, setEditMode] = useState(false);
-  const [editData, setEditData] = useState({
-    first_name: "",
-    last_name: "",
-    username: "",
-    email: "",
-    phone_number: "",
-  });
+function initials(profile) {
+  const first = profile.first_name?.trim()?.[0] || profile.username?.[0] || "V";
+  const last = profile.last_name?.trim()?.[0] || "";
+  return `${first}${last}`.toLocaleUpperCase("es-CO");
+}
+
+export default function ProfileScreen({ role, onLogout }) {
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState(EMPTY_PROFILE);
+  const [draft, setDraft] = useState(EMPTY_PROFILE);
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const fileInputRef = useRef();
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [avatar, setAvatar] = useState("");
+  const photoRef = useRef(null);
 
-  const getUserIdKey = (u, token) => {
-    if (u && u.id) return String(u.id);
-    if (u && u.username) return String(u.username).toLowerCase();
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        if (payload.id) return String(payload.id);
-        if (payload.username) return String(payload.username).toLowerCase();
-      } catch {}
-    }
-    return (localStorage.getItem("username") || "default").toLowerCase();
-  };
-
-  const applyUserData = useCallback((u, token) => {
-    if (!u) return;
-    const usernameRaw = localStorage.getItem("username") || u.username || "";
-    const username = usernameRaw.charAt(0).toUpperCase() + usernameRaw.slice(1);
-    const userData = {
-      first_name: u.first_name || "",
-      last_name: u.last_name || "",
-      username,
-      email: u.email || "",
-      phone_number: u.phone_number || "",
+  const applyProfile = useCallback((user) => {
+    if (!user) return;
+    const next = {
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      username: user.username || localStorage.getItem("username") || "",
+      email: user.email || "",
+      phone_number: user.phone_number || "",
     };
-    setUser(userData);
-    setEditData(userData);
-    const userIdKey = getUserIdKey(u, token);
-    const saved = localStorage.getItem(`profileImage_${userIdKey}`);
-    setAvatar(saved || DEFAULT_AVATAR);
+    setProfile(next);
+    setDraft(next);
+    const key = next.username.toLowerCase();
+    try { setAvatar(localStorage.getItem(`profileImage_${key}`) || ""); } catch { setAvatar(""); }
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("access");
-
-    // Carga instantánea desde caché
     const cached = getUserCache();
-    if (cached) applyUserData(cached, token);
-
-    // Refresco en background desde la API
-    getCurrentUser().then((u) => {
-      if (!u) return;
-      saveUserCache(u);
-      applyUserData(u, token);
+    if (cached) applyProfile(cached);
+    let active = true;
+    getCurrentUser().then((user) => {
+      if (!active || !user) return;
+      saveUserCache(user);
+      applyProfile(user);
+    }).catch(() => {
+      if (!cached) setError("No se pudieron cargar los datos de la cuenta. Revisa tu conexión e inténtalo de nuevo.");
     });
-  }, [applyUserData]);
+    return () => { active = false; };
+  }, [applyProfile]);
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const token = localStorage.getItem("access");
-    getCurrentUser().then((u) => {
-      const userIdKey = getUserIdKey(u, token);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setAvatar(ev.target.result);
-        localStorage.setItem(`profileImage_${userIdKey}`, ev.target.result);
-        setPhotoSavedMsg("Foto guardada correctamente");
-        setTimeout(() => setPhotoSavedMsg(""), 2000);
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleInputChange = (field) => (e) =>
-    setEditData((prev) => ({ ...prev, [field]: e.target.value }));
-
-  const handleSave = async () => {
+  const handleSave = async (event) => {
+    event.preventDefault();
     setSaving(true);
-    setSaveError("");
-    setSaveSuccess(false);
+    setError("");
+    setSaved(false);
+    const next = {
+      ...draft,
+      first_name: normalizeName(draft.first_name),
+      last_name: normalizeName(draft.last_name),
+    };
     try {
-      const normalizedFirst = normalizeName(editData.first_name || "");
-      const normalizedLast = normalizeName(editData.last_name || "");
-      await updateCurrentUser({
-        first_name: normalizedFirst,
-        last_name: normalizedLast,
-        email: editData.email || "",
-        phone_number: editData.phone_number || "",
+      const updatedUser = await updateCurrentUser({
+        first_name: next.first_name,
+        last_name: next.last_name,
+        email: next.email.trim(),
+        phone_number: next.phone_number.trim(),
       });
-      setEditData((ed) => ({ ...ed, first_name: normalizedFirst, last_name: normalizedLast }));
-      setUser({ ...editData });
-      saveUserCache({ ...editData });
-      setEditMode(false);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setProfile(next);
+      setDraft(next);
+      saveUserCache({ ...updatedUser, ...next, id: updatedUser?.id || getUserCache()?.id });
+      setEditing(false);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2800);
     } catch {
-      setSaveError("No se pudieron guardar los cambios. Inténtalo de nuevo.");
+      setError("No se guardaron los cambios. Comprueba los datos y vuelve a intentarlo.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCancel = () => {
-    setEditData({ ...user });
-    setEditMode(false);
-    setSaveError("");
+  const handlePhoto = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { setError("Elige un archivo de imagen."); return; }
+    if (file.size > 2 * 1024 * 1024) { setError("La foto debe pesar menos de 2 MB."); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const data = String(reader.result || "");
+      setAvatar(data);
+      try { localStorage.setItem(`profileImage_${profile.username.toLowerCase()}`, data); } catch { setError("No hay espacio disponible para guardar la foto en este dispositivo."); }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
   };
 
-  const displayName =
-    [user.first_name, user.last_name].filter(Boolean).join(" ") ||
-    user.username ||
-    "Sin nombre";
-
   return (
-    <div className="w-full flex justify-center px-4 py-10">
-      <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-14 flex flex-col items-center w-full min-w-[350px] max-w-[600px] relative">
-        <button
-          className="absolute top-6 right-6 text-3xl text-gray-400 hover:text-gray-700 focus:outline-none"
-          title="Cerrar"
-          onClick={() => window.history.back()}
-        >
-          ×
-        </button>
-        <h2 className="text-2xl md:text-3xl font-bold text-center mb-2">Mi Perfil</h2>
-        <p className="text-gray-500 text-center mb-8">Actualiza tu foto e información personal.</p>
-
-        {/* Avatar */}
-        <div className="relative mb-10 flex flex-col items-center">
-          <img
-            src={avatar}
-            alt="Avatar"
-            className="w-[120px] h-[120px] md:w-[150px] md:h-[150px] rounded-full object-cover border-4 border-blue-200 shadow-lg"
-          />
-          <button
-            onClick={() => fileInputRef.current.click()}
-            className="absolute bottom-2 right-2 md:bottom-4 md:right-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-md focus:outline-none"
-            title="Cambiar foto"
-          >
-            <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
+    <div className="min-h-screen flex bg-slate-100">
+      <Sidebar role={role} onLogout={onLogout} />
+      <main className="vt-settings-page">
+        <header className="vt-settings-heading vt-profile-heading">
+          <div>
+            <p className="vt-settings-eyebrow">Tu cuenta</p>
+            <h1>Mi perfil</h1>
+            <p>Consulta y actualiza la información de tu cuenta.</p>
+          </div>
+          <button className="vt-settings-back" type="button" onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate("/dashboard")}>
+            <span aria-hidden="true">←</span> Volver
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleImageChange}
-          />
-          {photoSavedMsg && (
-            <span className="mt-3 text-green-600 text-sm font-semibold">{photoSavedMsg}</span>
-          )}
-        </div>
+        </header>
 
-        {/* Campos */}
-        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mb-10">
-          <SectionCard
-            label="Nombre"
-            value={editMode ? `${editData.first_name} ${editData.last_name}`.trim() : displayName}
-            editable={editMode}
-            onChange={(e) => {
-              const [first, ...rest] = e.target.value.split(" ");
-              setEditData((ed) => ({ ...ed, first_name: first || "", last_name: rest.join(" ") }));
-            }}
-          />
-          <SectionCard
-            label="Correo"
-            value={editMode ? editData.email : user.email}
-            editable={editMode}
-            onChange={handleInputChange("email")}
-            type="email"
-          />
-          <SectionCard
-            label="Teléfono"
-            value={editMode ? editData.phone_number : (user.phone_number || "Sin especificar")}
-            editable={editMode}
-            onChange={handleInputChange("phone_number")}
-            type="tel"
-          />
-        </div>
+        <div className="vt-profile-grid">
+          <section className="vt-settings-section vt-profile-section" id="perfil" aria-labelledby="vt-profile-title">
+            <div className="vt-settings-section-heading">
+              <div><h2 id="vt-profile-title">Datos de tu perfil</h2><p>La información que identifica tu cuenta.</p></div>
+              {!editing && <button className="vt-settings-edit" type="button" onClick={() => { setError(""); setEditing(true); }}>Editar datos</button>}
+            </div>
 
-        {saveError && (
-          <p className="text-red-500 text-sm mb-4 text-center">{saveError}</p>
-        )}
-        {saveSuccess && (
-          <p className="text-green-600 text-sm mb-4 text-center font-semibold">Cambios guardados correctamente.</p>
-        )}
+            <div className="vt-profile-identity">
+              <div className="vt-profile-avatar" aria-hidden="true">
+                {avatar ? <img src={avatar} alt="" /> : <span>{initials(profile)}</span>}
+              </div>
+              <div className="vt-profile-identity-copy">
+                <strong>{[profile.first_name, profile.last_name].filter(Boolean).join(" ") || profile.username || "Tu cuenta"}</strong>
+                <span>{role === "admin" ? "Administrador" : role === "driver" ? "Conductor" : "Pasajero"}</span>
+              </div>
+              <button className="vt-profile-photo" type="button" onClick={() => photoRef.current?.click()}>Cambiar foto</button>
+              <input ref={photoRef} className="vt-visually-hidden" type="file" accept="image/*" onChange={handlePhoto} aria-label="Seleccionar foto de perfil" />
+            </div>
 
-        {/* Botones */}
-        <div className="w-full flex flex-col gap-4">
-          {!editMode ? (
-            <button
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold w-full py-3 rounded-lg shadow transition-all text-lg"
-              onClick={() => setEditMode(true)}
-            >
-              Editar perfil
-            </button>
-          ) : (
-            <>
-              <button
-                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold w-full py-3 rounded-lg shadow transition-all text-lg"
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? "Guardando..." : "Guardar cambios"}
-              </button>
-              <button
-                className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold w-full py-3 rounded-lg shadow transition-all text-lg"
-                onClick={handleCancel}
-                disabled={saving}
-              >
-                Cancelar
-              </button>
-            </>
-          )}
+            <form onSubmit={handleSave}>
+              <div className="vt-profile-fields">
+                <label><span>Nombre</span><input disabled={!editing} value={draft.first_name} onChange={(e) => setDraft((current) => ({ ...current, first_name: e.target.value }))} autoComplete="given-name" /></label>
+                <label><span>Apellido</span><input disabled={!editing} value={draft.last_name} onChange={(e) => setDraft((current) => ({ ...current, last_name: e.target.value }))} autoComplete="family-name" /></label>
+                <label><span>Correo</span><input disabled={!editing} type="email" value={draft.email} onChange={(e) => setDraft((current) => ({ ...current, email: e.target.value }))} autoComplete="email" /></label>
+                <label><span>Teléfono</span><input disabled={!editing} type="tel" value={draft.phone_number} onChange={(e) => setDraft((current) => ({ ...current, phone_number: e.target.value }))} autoComplete="tel" /></label>
+                <label className="vt-profile-username"><span>Nombre de usuario</span><input disabled value={profile.username} autoComplete="username" /></label>
+              </div>
+              {error && <p className="vt-settings-message is-error" role="alert">{error}</p>}
+              {saved && <p className="vt-settings-message is-success" role="status">Cambios guardados.</p>}
+              {editing && <div className="vt-profile-actions"><button className="vt-settings-cancel" type="button" disabled={saving} onClick={() => { setDraft(profile); setEditing(false); setError(""); }}>Cancelar</button><button className="vt-settings-save" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar cambios"}</button></div>}
+            </form>
+          </section>
+
         </div>
-      </div>
+      </main>
     </div>
   );
 }
