@@ -20,6 +20,7 @@ permissions:
 jobs:
   analyze:
     name: Analyze code
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.base.ref == 'master' }}
     runs-on: ubuntu-latest
 
     steps:
