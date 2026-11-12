@@ -491,12 +491,12 @@ export default function TrackingPage({ routeId: routeIdProp }) {
         if (cancelled) return;
 
         if (resolvedId) {
-          navigate(`/tracking/${resolvedId}`, { replace: true });
+          void navigate(`/tracking/${resolvedId}`, { replace: true });
         } else {
-          navigate("/dashboard", { replace: true });
+          void navigate("/dashboard", { replace: true });
         }
       } catch {
-        if (!cancelled) navigate("/dashboard", { replace: true });
+        if (!cancelled) void navigate("/dashboard", { replace: true });
       }
     }
 
@@ -2264,7 +2264,7 @@ export default function TrackingPage({ routeId: routeIdProp }) {
           clearInterval(nextRouteCountdownRef.current);
           nextRouteCountdownRef.current = null;
           setNextRouteCountdown(null);
-          navigate(`/tracking/${nextRouteRef.current.id}`);
+          void navigate(`/tracking/${nextRouteRef.current.id}`);
         }
       }, 1000);
     }
@@ -2588,13 +2588,13 @@ export default function TrackingPage({ routeId: routeIdProp }) {
           }
           setNextRouteCountdown(null);
           if (nextRoute) {
-            navigate(`/tracking/${nextRoute.id}`);
+            void navigate(`/tracking/${nextRoute.id}`);
           } else {
-            navigate("/driver/routes");
+            void navigate("/driver/routes");
           }
         }}
-        onGoHome={() => navigate("/dashboard")}
-        onViewReport={() => navigate(`/routes/${selectedRouteId}/report`, {
+        onGoHome={() => void navigate("/dashboard")}
+        onViewReport={() => void navigate(`/routes/${selectedRouteId}/report`, {
           state: {
             route: routeInfo,
             report: {
@@ -2655,7 +2655,7 @@ export default function TrackingPage({ routeId: routeIdProp }) {
             <button
               type="button"
               className="sidebar-back"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => void navigate("/dashboard")}
               aria-label="Volver al dashboard"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -2855,7 +2855,7 @@ export default function TrackingPage({ routeId: routeIdProp }) {
                         nextRouteCountdownRef.current = null;
                       }
                       setNextRouteCountdown(null);
-                      navigate(`/tracking/${nextRoute.id}`);
+                      void navigate(`/tracking/${nextRoute.id}`);
                     }}
                   >
                     Ir ahora

@@ -95,7 +95,7 @@ export default function ResetPasswordPage() {
     setLoading(true);
     try {
       await resetPassword(token, password);
-      navigate("/login?reset=success", { replace: true });
+      void navigate("/login?reset=success", { replace: true });
     } catch (err) {
       const msg = err?.response?.data?.error || "";
       if (err?.response?.status === 400 && msg.toLowerCase().includes("token")) {
