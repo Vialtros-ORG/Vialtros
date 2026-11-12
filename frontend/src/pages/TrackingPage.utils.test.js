@@ -68,6 +68,10 @@ describe("TrackingPage route and GPS helpers", () => {
       [4, -77],
       [{ coords: [3.9, -77.1] }, { coords: [3.9, -77.1] }],
     )).toEqual([[3.8, -77.2], [3.9, -77.1], [4, -77]]);
+    expect(buildRouteWaypointCoordinates(null, [3.9, -77.1], [
+      { lat: 3.85, lng: -77.15 },
+      { latitude: 120, longitude: 0 },
+    ])).toEqual([[3.85, -77.15], [3.9, -77.1]]);
     expect(buildRouteWaypointCoordinates([91, 0], [0, 181], [{ latitude: 95, longitude: 0 }])).toEqual([]);
   });
 
@@ -81,6 +85,16 @@ describe("TrackingPage route and GPS helpers", () => {
       destination_lng: -77.1,
       intermediate_stops: [{ coords: [3.85, -77.15], label: "Parada" }],
     })).toBe("3.8,-77.2->3.9,-77.1|3.85,-77.15,Parada");
+    expect(buildRouteSignature({
+      origin_lat: 3.8,
+      origin: "Centro",
+      destination: "Colegio",
+      intermediate_stops: [
+        { latitude: 3.85, longitude: -77.15, address: "Dirección" },
+        { lat: 3.86, lng: -77.16, label: "Etiqueta" },
+        {},
+      ],
+    })).toBe("Centro->Colegio|3.85,-77.15,Dirección|3.86,-77.16,Etiqueta|,,");
   });
 
   it("splits a planned route at the nearest vehicle projection and calculates remaining distance", () => {
@@ -90,6 +104,7 @@ describe("TrackingPage route and GPS helpers", () => {
     expect(split.traveled).toEqual([[3.8, -77.2], [3.9, -77.1]]);
     expect(split.remaining).toEqual([[3.9, -77.1], [4, -77]]);
     expect(remainingRouteDistanceKm(route, [3.9, -77.1])).toBeGreaterThan(0);
+    expect(remainingRouteDistanceKm(route, [3.85, -77.15])).toBeGreaterThan(0);
     expect(remainingRouteDistanceKm([], [3.9, -77.1])).toBeNull();
     expect(splitRouteByVehiclePoint([[3.8, -77.2]], null).remaining).toEqual([[3.8, -77.2]]);
     expect(projectPointOnSegment([3, 4], [3, 4], [3, 4])).toEqual({
@@ -97,6 +112,12 @@ describe("TrackingPage route and GPS helpers", () => {
       distanceSquared: 0,
     });
     expect(projectPointOnSegment([4, 6], [3, 4], [3, 4]).distanceSquared).toBe(5);
+    expect(remainingRouteDistanceKm(null, [3.9, -77.1])).toBeNull();
+    expect(splitRouteByVehiclePoint(null, [3.9, -77.1])).toEqual({
+      traveled: [],
+      remaining: [],
+      projectedPoint: [3.9, -77.1],
+    });
   });
 
   it("calculates route lengths and handles empty, duplicate, and invalid points", () => {
@@ -107,6 +128,7 @@ describe("TrackingPage route and GPS helpers", () => {
     expect(appendHistoryPoint([[3, 4]], [3, 4])).toEqual([[3, 4]]);
     expect(appendHistoryPoint([[3, 4]], [3, 5])).toEqual([[3, 4], [3, 5]]);
     expect(appendHistoryPoint([[3, 4]], ["bad", 5])).toEqual([[3, 4]]);
+    expect(dedupeConsecutivePoints(null)).toEqual([]);
   });
 
   it("bounds route sampling and progress values", () => {
@@ -139,11 +161,24 @@ describe("TrackingPage route and GPS helpers", () => {
     expect(extractPositionPayload(null)).toBeNull();
     expect(extractPositionPayload(payload)).toBe(payload);
     expect(extractPositionPayload({ event: "POSITION_UPDATE", data: payload })).toBe(payload);
+    expect(extractPositionPayload({ event: "position_update", payload })).toBe(payload);
+    expect(extractPositionPayload({ type: "position_update", position: payload })).toBe(payload);
     expect(extractPositionPayload({ type: "other", data: payload })).toBeNull();
+    expect(extractPositionPayload({ action: "position_update", position: payload })).toBe(payload);
+    expect(normalizeTracking({ latitude: "3.89", longitude: "-77.02", timestamp: "recorded" }, "fallback")).toMatchObject({
+      latitude: 3.89,
+      longitude: -77.02,
+      timestamp: "recorded",
+    });
     expect(isRecentTimestamp("invalid")).toBe(false);
     expect(isRecentTimestamp(new Date().toISOString())).toBe(true);
     expect(isWithinBuenaventura(3.89, -77.02)).toBe(true);
+    expect(isWithinBuenaventura(3.65, -77.25)).toBe(true);
+    expect(isWithinBuenaventura(4.05, -76.75)).toBe(true);
+    expect(isWithinBuenaventura(3.64, -77.02)).toBe(false);
     expect(isWithinBuenaventura(5, -77.02)).toBe(false);
+    expect(isWithinBuenaventura(3.89, -77.26)).toBe(false);
+    expect(isWithinBuenaventura(3.89, -76.74)).toBe(false);
   });
 
   it("merges GPS events by identity and reduces route state transitions", () => {
