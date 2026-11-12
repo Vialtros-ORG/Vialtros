@@ -41,6 +41,7 @@ jobs:
       - name: Run backend tests with coverage
         run: |
           mkdir -p backend/coverage-output
+          chmod 777 backend/coverage-output
           docker run --rm --entrypoint sh \
             -v "$GITHUB_WORKSPACE/backend/coverage-output:/coverage" \
             -e DJANGO_SECRET_KEY \
