@@ -45,7 +45,7 @@ jobs:
             -v "$GITHUB_WORKSPACE/backend/coverage-output:/coverage" \
             -e DJANGO_SECRET_KEY \
             vialtros-sonar-backend \
-            -c "python -m pip install --only-binary=:all: coverage==7.10.6 && coverage run --branch --source=core,tracking,users manage.py test && coverage xml -o /coverage/coverage.xml"
+            -c "python -m pip install --only-binary=:all: coverage==7.10.6 && python -m coverage run --branch --source=core,tracking,users manage.py test && python -m coverage xml -o /coverage/coverage.xml"
 
       - name: Normalize backend coverage paths for Sonar
         run: |
