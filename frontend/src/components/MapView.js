@@ -991,13 +991,16 @@ out center;`;
       setClickedPlace({ lat, lng, address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, loading: false });
       return;
     }
-    new window.google.maps.Geocoder().geocode({ location: { lat, lng } }, (results, status) => {
-      const address =
-        status === "OK" && results?.[0]
-          ? results[0].formatted_address
-          : `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      setClickedPlace({ lat, lng, address, loading: false });
-    });
+    const fallbackAddress = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    void new window.google.maps.Geocoder()
+      .geocode({ location: { lat, lng } })
+      .then(({ results }) => {
+        const address = results?.[0]?.formatted_address || fallbackAddress;
+        setClickedPlace({ lat, lng, address, loading: false });
+      })
+      .catch(() => {
+        setClickedPlace({ lat, lng, address: fallbackAddress, loading: false });
+      });
   }, [gpsMode]);
 
   return (

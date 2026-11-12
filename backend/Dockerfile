@@ -13,10 +13,10 @@ RUN pip install --no-cache-dir --require-hashes --only-binary=:all: -r requireme
     && mkdir -p /app/staticfiles \
     && chown -R app:app /app
 
-COPY --chown=app:app manage.py entrypoint.sh ./
-COPY --chown=app:app core ./core
-COPY --chown=app:app tracking ./tracking
-COPY --chown=app:app users ./users
+COPY --chown=root:root manage.py entrypoint.sh ./
+COPY --chown=root:root core ./core
+COPY --chown=root:root tracking ./tracking
+COPY --chown=root:root users ./users
 
 RUN sed -i 's/\r$//' /app/entrypoint.sh \
     && chmod 0555 /app/entrypoint.sh
