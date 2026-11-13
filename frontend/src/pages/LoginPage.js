@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { LogoIcon } from "../components/Logo";
+import "./LoginPage.css";
 import api from "../services/api";
 import {
   ensureLocalAccessSession,
@@ -99,7 +100,7 @@ export default function LoginPage({ onLogin }) {
         onLogin();
       }
 
-      navigate("/dashboard", { replace: true });
+      void navigate("/dashboard", { replace: true });
     },
     [navigate, onLogin],
   );
@@ -109,7 +110,7 @@ export default function LoginPage({ onLogin }) {
       if (onLogin) {
         onLogin();
       }
-      navigate("/dashboard", { replace: true });
+      void navigate("/dashboard", { replace: true });
       return;
     }
 
@@ -123,7 +124,7 @@ export default function LoginPage({ onLogin }) {
       onLogin();
     }
 
-    navigate("/dashboard", { replace: true });
+    void navigate("/dashboard", { replace: true });
   }, [navigate, onLogin]);
 
   const handleSubmit = async (e) => {
@@ -131,6 +132,12 @@ export default function LoginPage({ onLogin }) {
     setError("");
     setLoading(true);
     const normalizedUsername = username.trim();
+
+    if (!normalizedUsername) {
+  setError("Ingresa tu nombre de usuario");
+  setLoading(false);
+  return;
+}
     try {
       const res = await api.post("/token/", {
         username: normalizedUsername,
@@ -140,7 +147,13 @@ export default function LoginPage({ onLogin }) {
       localStorage.setItem("refresh", res.data.refresh);
       localStorage.removeItem("role");
       // Pre-cargar datos del usuario en caché para que el perfil cargue instantáneo
-      getCurrentUser().then((u) => { if (u) saveUserCache(u); });
+      void getCurrentUser()
+        .then((user) => {
+          if (user) saveUserCache(user);
+        })
+        .catch(() => {
+          // El inicio de sesión no depende de precargar el perfil.
+        });
       finishLogin(normalizedUsername);
     } catch (err) {
       if (isLocalAccessEnabled()) {
@@ -164,59 +177,40 @@ export default function LoginPage({ onLogin }) {
   };
 
   return (
-    <div className="h-screen flex font-sans bg-white overflow-hidden">
+    <div className="vt-login">
       {/* ── Panel izquierdo: branding ── */}
-      <div
-        className="hidden lg:flex flex-col justify-between flex-1 px-16 py-10 relative overflow-hidden"
-        style={{
-          background:
-            "linear-gradient(135deg, #1E40AF 0%, #2563EB 55%, #3B82F6 100%)",
-        }}
-      >
-        {/* Shapes decorativos */}
-        <svg
-          className="absolute inset-0 w-full h-full opacity-10 pointer-events-none"
-          aria-hidden
-        >
-          <circle cx="10%" cy="15%" r="180" fill="white" />
-          <circle cx="85%" cy="75%" r="260" fill="white" />
-          <circle cx="60%" cy="20%" r="100" fill="white" />
-          <rect
-            x="70%"
-            y="55%"
-            width="180"
-            height="180"
-            rx="40"
-            fill="white"
-            opacity="0.5"
-            transform="rotate(20,900,600)"
-          />
+      <section className="vt-login-story" aria-label="Seguimiento de rutas">
+        <svg className="vt-login-route" viewBox="0 0 900 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <path className="vt-login-route-glow" d="M-80 590 C130 530 155 390 350 410 S545 525 620 340 760 190 980 110" />
+          <path className="vt-login-route-line" d="M-80 590 C130 530 155 390 350 410 S545 525 620 340 760 190 980 110" />
+          <circle cx="350" cy="410" r="9" />
+          <circle cx="620" cy="340" r="9" />
+          <circle cx="760" cy="190" r="13" />
         </svg>
 
         {/* Logo */}
-        <div className="relative z-10 flex items-center gap-5">
-          <LogoIcon size={80} color="white" />
-          <span className="text-5xl font-bold text-white tracking-tight">
-            Vialtros
-          </span>
-        </div>
+        <Link to="/" className="vt-login-brand" aria-label="Ir al inicio de Vialtros" title="Ir al inicio">
+          <LogoIcon size={46} color="#3FB3C2" />
+          <span>Vialtros</span>
+        </Link>
 
         {/* Copy central */}
-        <div className="relative z-10">
-          <h1 className="text-4xl font-extrabold text-white leading-tight max-w-md">
-            Sigue en tiempo real la ruta que más te importa.
+        <div className="vt-login-story-copy">
+          <p className="vt-login-kicker">Vialtros · transporte escolar</p>
+          <h1>
+            Cada ruta,<br />
+            <span>siempre a la vista.</span>
           </h1>
-          <p className="mt-4 text-blue-200 text-lg max-w-sm leading-relaxed">
-            Sabe exactamente dónde está el vehículo y cuándo llegará, desde
-            cualquier dispositivo.
+          <p className="vt-login-description">
+            Consulta dónde va el vehículo y cuándo llegará, desde cualquier dispositivo.
           </p>
 
           {/* Feature chips */}
-          <div className="mt-10 flex flex-col gap-3">
+          <ul className="vt-login-features">
             {LOGIN_FEATURES.map((feature) => (
-              <div key={feature} className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <li key={feature}>
+                <span className="vt-login-check">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                     <path
                       d="M2 6l3 3 5-5"
                       stroke="white"
@@ -225,32 +219,29 @@ export default function LoginPage({ onLogin }) {
                       strokeLinejoin="round"
                     />
                   </svg>
-                </div>
-                <span className="text-blue-100 text-sm font-medium">
-                  {feature}
                 </span>
-              </div>
+                <span>{feature}</span>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
-
-        {/* Footer */}
-        <p className="relative z-10 text-blue-300 text-xs">
-          
-        </p>
-      </div>
+        <span className="vt-login-story-foot">Seguimiento claro para cada trayecto.</span>
+      </section>
 
       {/* ── Panel derecho: formulario ── */}
-      <div className="flex flex-col justify-center items-center w-full lg:w-[560px] px-12 py-8 bg-white overflow-y-auto">
+      <main className="vt-login-panel">
         {/* Logo solo en móvil */}
-        <div className="flex items-center gap-2 mb-10 lg:hidden">
-          <LogoIcon size={48} color="#2563EB" />
-          <span className="text-xl font-bold text-gray-900">Vialtros</span>
-        </div>
+        <Link to="/" className="vt-login-mobile-brand" aria-label="Ir al inicio de Vialtros" title="Ir al inicio">
+          <LogoIcon size={38} color="#0B6E80" />
+          <span>Vialtros</span>
+        </Link>
 
-        <div className="w-full max-w-md">
+        <div className="vt-login-form-wrap">
+          <Link to="/" className="vt-login-back">
+            <span aria-hidden="true">←</span> Volver al inicio
+          </Link>
           {resetSuccess && (
-            <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 mb-6">
+            <div className="vt-login-notice">
               <svg
                 width="16"
                 height="16"
@@ -269,28 +260,32 @@ export default function LoginPage({ onLogin }) {
             </div>
           )}
 
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">
-            Iniciar sesión en Vialtros
+          <h2>
+            Iniciar sesión
           </h2>
-          <p className="text-sm text-gray-400 mb-8">
-            Ingresa tus credenciales para acceder al panel
+          <p className="vt-login-form-hint">
+            Ingresa tus credenciales para continuar.
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             {/* Campo usuario */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-gray-700">
+            <div className="vt-login-field">
+              <label htmlFor="login-username">
                 Usuario
               </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <div className="vt-login-input-wrap">
+                <span className="vt-login-input-icon" aria-hidden="true">
                   <IconUser />
                 </span>
                 <input
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl pl-10 pr-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition"
+                  id="login-username"
+                  className="vt-login-input"
                   placeholder="Nombre de usuario"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => {
+  setUsername(e.target.value);
+  setError("");
+}}
                   autoComplete="username"
                   required
                 />
@@ -298,31 +293,35 @@ export default function LoginPage({ onLogin }) {
             </div>
 
             {/* Campo contraseña */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-gray-700">
+            <div className="vt-login-field">
+              <label htmlFor="login-password">
                 Contraseña
               </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <div className="vt-login-input-wrap">
+                <span className="vt-login-input-icon" aria-hidden="true">
                   <IconLock />
                 </span>
                 <input
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl pl-10 pr-12 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition"
+                  id="login-password"
+                  className="vt-login-input vt-login-password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+  setPassword(e.target.value);
+  setError("");
+}}
                   autoComplete="current-password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
-                  tabIndex={-1}
+                  className="vt-login-eye"
                   aria-label={
                     showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
                   }
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? <IconEyeOff /> : <IconEye />}
                 </button>
@@ -331,7 +330,11 @@ export default function LoginPage({ onLogin }) {
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+              <div
+  role="alert"
+  aria-live="polite"
+  className="vt-login-error"
+>
                 <svg
                   width="16"
                   height="16"
@@ -354,8 +357,8 @@ export default function LoginPage({ onLogin }) {
             {/* Botón */}
             <button
               type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl text-sm transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2 mt-1"
+              disabled={loading || !username.trim() || !password}
+              className="vt-login-submit"
             >
               {loading ? (
                 <>
@@ -389,13 +392,13 @@ export default function LoginPage({ onLogin }) {
           <div className="text-center mt-4">
             <Link
               to="/forgot-password"
-              className="text-sm text-blue-600 hover:text-blue-700 transition"
+              className="vt-login-forgot"
             >
               ¿Olvidaste tu contraseña?
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

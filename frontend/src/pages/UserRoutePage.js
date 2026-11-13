@@ -2,12 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Sidebar from "../components/dashboard/Sidebar";
 import { icons } from "../components/dashboard/icons";
-import TrackingHero from "../components/tracking/TrackingHero";
 import MapView from "../components/MapView";
 import { getUserAssignedRoute, getDriverTrackings } from "../services/dashboard";
 import { getTrackingsByRoute } from "../services/tracking";
 import { geocodeAddress, getStreetRouteThroughPoints } from "../services/routing";
 import { connectTrackingWS } from "../services/ws";
+import { useAppTheme } from "../context/ThemeContext";
+import "./UserRoutePage.css";
 
 const DEFAULT_SPEED_KMH = 18;
 const NEAR_DISTANCE_KM = 0.8;
@@ -38,6 +39,7 @@ function normalizeTracking(raw) {
 
 
 export default function UserRoutePage({ role, onLogout }) {
+  const { resolvedTheme } = useAppTheme();
   const [data, setData] = useState(null);
   const [trackings, setTrackings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +86,12 @@ export default function UserRoutePage({ role, onLogout }) {
     const route = data?.route;
     if (!route) return;
 
-    if (route.origin_lat && route.origin_lng) {
+    if (
+      route.origin_lat != null &&
+      route.origin_lng != null &&
+      Number.isFinite(Number(route.origin_lat)) &&
+      Number.isFinite(Number(route.origin_lng))
+    ) {
       setOriginCoords([Number(route.origin_lat), Number(route.origin_lng)]);
     } else if (route.origin) {
       geocodeAddress(route.origin).then((coords) => {
@@ -92,7 +99,12 @@ export default function UserRoutePage({ role, onLogout }) {
       }).catch(() => {});
     }
 
-    if (route.destination_lat && route.destination_lng) {
+    if (
+      route.destination_lat != null &&
+      route.destination_lng != null &&
+      Number.isFinite(Number(route.destination_lat)) &&
+      Number.isFinite(Number(route.destination_lng))
+    ) {
       setDestinationCoords([Number(route.destination_lat), Number(route.destination_lng)]);
     } else if (route.destination) {
       geocodeAddress(route.destination).then((coords) => {
@@ -106,7 +118,12 @@ export default function UserRoutePage({ role, onLogout }) {
       const myPassenger = route.passenger_details.find(
         (p) => p.user_detail?.username === currentUsername,
       );
-      if (myPassenger?.pickup_lat && myPassenger?.pickup_lng) {
+      if (
+        myPassenger?.pickup_lat != null &&
+        myPassenger?.pickup_lng != null &&
+        Number.isFinite(Number(myPassenger.pickup_lat)) &&
+        Number.isFinite(Number(myPassenger.pickup_lng))
+      ) {
         setMyPickupCoords([Number(myPassenger.pickup_lat), Number(myPassenger.pickup_lng)]);
       }
     }
@@ -119,7 +136,12 @@ export default function UserRoutePage({ role, onLogout }) {
     const points = [
       originCoords,
       ...stops
-        .filter((s) => s.latitude && s.longitude)
+      .filter((s) =>
+        Number.isFinite(Number(s.latitude)) &&
+        Number.isFinite(Number(s.longitude)) &&
+        s.latitude != null &&
+        s.longitude != null,
+      )
         .map((s) => [Number(s.latitude), Number(s.longitude)]),
       destinationCoords,
     ];
@@ -199,6 +221,12 @@ export default function UserRoutePage({ role, onLogout }) {
 
   const route = data?.route;
   const driver = data?.driver;
+  const assignedPassengers = route?.passenger_details || [];
+  const passengerCount = route?.passenger_count ?? assignedPassengers.length;
+  const currentUsername = localStorage.getItem("username");
+  const myPassenger = assignedPassengers.find(
+    (passenger) => passenger.user_detail?.username === currentUsername,
+  );
 
   const latestTracking = useMemo(() => {
     if (livePosition) return livePosition;
@@ -237,231 +265,184 @@ export default function UserRoutePage({ role, onLogout }) {
     return t?.status || "not_picked";
   }, [trackings, route?.id]);
 
+  const pickupState = pickupStatus === "picked"
+    ? { label: "Recogida confirmada", detail: "El conductor confirmó que ya estás a bordo.", tone: "picked" }
+    : pickupStatus === "dropped_off"
+      ? { label: "Llegada confirmada", detail: "El conductor registró tu llegada a la parada.", tone: "complete" }
+      : { label: "Pendiente de recogida", detail: "Espera en tu parada; el conductor actualizará este estado.", tone: "pending" };
+
+  const journeySummary = pickupStatus === "dropped_off"
+    ? "Recorrido completado"
+    : vehiclePosition
+      ? "Bus en movimiento"
+      : "Esperando al conductor";
+
   const WS_UI = {
-    connecting:  { label: "Conectando...",      dot: "bg-amber-500 animate-pulse",   badge: "bg-amber-100 text-amber-700" },
-    connected:   { label: "En vivo",            dot: "bg-emerald-500 animate-pulse", badge: "bg-emerald-100 text-emerald-700" },
-    fallback:    { label: "En vivo (respaldo)", dot: "bg-amber-500",                 badge: "bg-amber-100 text-amber-700" },
-    disconnected:{ label: "Sin conexión",       dot: "bg-red-400",                   badge: "bg-red-100 text-red-600" },
+    connecting:  { label: "Conectando..." },
+    connected:   { label: "En vivo" },
+    fallback:    { label: "En vivo (respaldo)" },
+    disconnected:{ label: "Sin conexión" },
   };
   const wsUiKey = isPollingFallback && wsStatus !== "connected" ? "fallback" : wsStatus;
-  const { label: wsLabel, dot: wsDotClass, badge: wsBadgeClass } = WS_UI[wsUiKey] ?? WS_UI.disconnected;
+  const { label: wsLabel } = WS_UI[wsUiKey] ?? WS_UI.disconnected;
 
   return (
-    <div className="min-h-screen flex bg-gray-50 font-sans">
+    <div className="vt-passenger-route-page min-h-screen flex">
       <Sidebar role={role} onLogout={onLogout} />
-      <main className="flex-1 min-w-0 py-8 px-6 md:px-10 overflow-y-auto">
-
-        <div className="mb-6">
-          <TrackingHero
-            backTo="/dashboard"
-            backAriaLabel="Volver al panel"
-            eyebrow="Ruta personal"
-            title="Tu ruta asignada"
-            description="Seguimiento en vivo de tu conductor y trayecto."
-            subtitle={route?.name || "Pendiente de asignacion"}
-            meta={
-              route ? (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${wsBadgeClass}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${wsDotClass}`} />
-                    {wsLabel}
-                  </span>
-                  <span className="tracking-hero-chip">
-                    {route?.passenger_count ?? route?.passenger_details?.length ?? 0} estudiantes
-                  </span>
-                </div>
-              ) : null
-            }
-          />
-        </div>
+      <main className="vt-passenger-route-main">
+        <header className="vt-passenger-route-heading">
+          <div>
+            <span className={`vt-passenger-connection is-${wsUiKey}`}><i aria-hidden="true" />{wsLabel}</span>
+            <h1>Mi ruta</h1>
+            <p>{route?.name ? `Seguimiento de ${route.name}` : "Consulta el estado de tu recorrido asignado."}</p>
+          </div>
+          {route && <span className="vt-passenger-count">{passengerCount} {passengerCount === 1 ? "pasajero" : "pasajeros"}</span>}
+        </header>
 
         {loading ? (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-6 py-16 text-center text-sm text-gray-400">
-            Cargando tu ruta...
-          </div>
+          <section className="vt-passenger-state-card" role="status">
+            <span className="vt-passenger-state-mark is-loading" aria-hidden="true" />
+            <h2>Cargando tu ruta</h2>
+            <p>Estamos buscando la información más reciente del recorrido.</p>
+          </section>
         ) : error ? (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-6 py-16 text-center">
-            <p className="text-base font-medium text-gray-700">{error}</p>
-            <p className="text-sm text-gray-400 mt-2">
-              Cuando un administrador te asigne una ruta, la verás aquí.
-            </p>
-          </div>
+          <section className="vt-passenger-state-card is-empty" role="status">
+            <span className="vt-passenger-state-mark" aria-hidden="true">{icons.routes({ size: 23 })}</span>
+            <h2>Aún no hay una ruta asignada</h2>
+            <p>{error} Cuando un administrador te asigne una ruta, la verás aquí.</p>
+            <Link to="/dashboard" className="vt-passenger-state-link">Volver al inicio</Link>
+          </section>
         ) : (
-          <div className="space-y-5">
-
-            {/* Mapa en vivo */}
-            <section className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
+          <div className="vt-passenger-route-grid">
+            <section className="vt-passenger-map-section" aria-labelledby="vt-passenger-map-title">
+              <header className="vt-passenger-map-heading">
                 <div>
-                  <h2 className="text-sm font-semibold text-gray-900">Seguimiento en vivo</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Posición actual del bus
+                  <h2 id="vt-passenger-map-title">Seguimiento en vivo</h2>
+                  <p>
                     {etaMinutes && myPickupCoords
-                      ? ` · ETA a tu parada: ${etaMinutes} min`
+                      ? `El bus llegará a tu parada en unos ${etaMinutes} min.`
                       : vehiclePosition
-                      ? " · Bus en ruta"
-                      : " · Esperando señal del conductor"}
+                        ? "El vehículo está compartiendo su ubicación."
+                        : "La ubicación aparecerá cuando el conductor inicie la ruta."}
                   </p>
                 </div>
-                {isVehicleNearby && (
-                  <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full flex-shrink-0">
-                    Cerca del destino
-                  </span>
-                )}
+                {isVehicleNearby && <span className="vt-passenger-nearby">Cerca del destino</span>}
+              </header>
+              <div className="vt-passenger-map-wrap">
+                <MapView
+                  trackings={trackings}
+                  vehiclePosition={vehiclePosition}
+                  routePolyline={routePolyline}
+                  originCoords={originCoords}
+                  destinationCoords={destinationCoords}
+                  originName={route?.origin}
+                  destinationName={route?.destination}
+                  intermediateStops={route?.intermediate_stops || []}
+                  userCoords={myPickupCoords}
+                  darkMode={resolvedTheme === "dark"}
+                  mapHeight="min(66vh, 590px)"
+                />
+                <div className="vt-passenger-map-legend" aria-label="Elementos del mapa">
+                  <span><i className="is-origin" />Origen</span>
+                  <span><i className="is-bus" />Ubicación del bus</span>
+                  <span><i className="is-stop" />Tu parada</span>
+                </div>
               </div>
-              <MapView
-                trackings={trackings}
-                vehiclePosition={vehiclePosition}
-                routePolyline={routePolyline}
-                originCoords={originCoords}
-                destinationCoords={destinationCoords}
-                originName={route?.origin}
-                destinationName={route?.destination}
-                intermediateStops={route?.intermediate_stops || []}
-                userCoords={myPickupCoords}
-                mapHeight="420px"
-              />
             </section>
 
-            {/* Grid: info de ruta + compañeros */}
-            <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-5">
-              <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-                <div className="flex items-start justify-between gap-4 mb-6">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-blue-500 font-semibold mb-2">
-                      Ruta
-                    </p>
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      {route?.name}
-                    </h2>
-                  </div>
-                  <span className="text-xs font-semibold bg-blue-50 text-blue-600 px-3 py-1 rounded-full">
-                    {route?.passenger_count ?? route?.passenger_details?.length ?? 0}{" "}
-                    estudiantes
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div className="rounded-xl bg-gray-50 border border-gray-100 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Origen</p>
-                    <div className="flex items-start gap-3 text-gray-800">
-                      <span className="text-blue-600">{icons.mapPin({ size: 18, strokeWidth: 2.2 })}</span>
-                      <p className="text-sm font-medium">{route?.origin}</p>
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-gray-50 border border-gray-100 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Destino</p>
-                    <div className="flex items-start gap-3 text-gray-800">
-                      <span className="text-emerald-600">{icons.navigation({ size: 18, strokeWidth: 2.2 })}</span>
-                      <p className="text-sm font-medium">{route?.destination}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-gray-100 bg-white p-4 mb-4">
-                  <p className="text-xs uppercase tracking-wide text-blue-500 font-semibold mb-2">
-                    Conductor asignado
-                  </p>
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-base font-semibold text-gray-900">
-                        {driver?.user_detail?.username || "Sin conductor asignado"}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {driver?.user_detail?.email || "Sin correo disponible"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[11px] uppercase tracking-wide text-gray-300">Licencia</p>
-                      <p className="text-sm font-medium text-gray-700">
-                        {driver?.license_number || "No disponible"}
-                      </p>
-                    </div>
-                  </div>
-                  {route?.id && (
-                    <div className="mt-4 flex justify-end">
-                      <Link
-                        to={`/tracking/${route.id}`}
-                        className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
-                      >
-                        Ver tracking completo
-                      </Link>
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-xl border border-gray-100 bg-white p-4">
-                  <p className="text-xs uppercase tracking-wide text-blue-500 font-semibold mb-2">
-                    Estado de Recogida
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`inline-flex items-center gap-1 text-sm font-medium px-3 py-1 rounded-full ${
-                        pickupStatus === "picked"
-                          ? "bg-blue-100 text-blue-700"
-                          : pickupStatus === "dropped_off"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {pickupStatus === "picked"
-                        ? "Ya fuiste recogido"
-                        : pickupStatus === "dropped_off"
-                        ? "Dejado en tu parada"
-                        : "Aun no has sido recogido"}
-                    </span>
-                    <p className="text-xs text-gray-400">
-                      {pickupStatus === "picked"
-                        ? "Tu conductor te ha marcado como recogido."
-                        : pickupStatus === "dropped_off"
-                        ? "Tu conductor te ha dejado en tu parada."
-                        : "Espera a que tu conductor te marque como recogido."}
-                    </p>
-                  </div>
+            <aside className="vt-passenger-route-details">
+              <section className="vt-passenger-journey-status" aria-live="polite">
+                <div className={`vt-passenger-status-dot is-${pickupState.tone}`} aria-hidden="true" />
+                <div>
+                  <span>Estado de tu recorrido</span>
+                  <strong>{pickupState.label}</strong>
+                  <p>{pickupState.detail}</p>
                 </div>
               </section>
 
-              <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-                <div className="flex items-center justify-between gap-4 mb-4">
+              <section className="vt-passenger-detail-section">
+                <div className="vt-passenger-detail-title">
+                  <span className="vt-passenger-detail-icon">{icons.users({ size: 18, strokeWidth: 1.9 })}</span>
+                  <h2>Tu conductor</h2>
+                </div>
+                <div className="vt-passenger-driver">
+                  <span className="vt-passenger-driver-avatar" aria-hidden="true">
+                    {(driver?.user_detail?.username || "C").slice(0, 1).toUpperCase()}
+                  </span>
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900">
-                      Tus compañeros de ruta
-                    </h3>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Lista de estudiantes asignados al mismo trayecto
-                    </p>
+                    <strong>{driver?.user_detail?.username || "Sin conductor asignado"}</strong>
+                    <span>{driver?.user_detail?.email || "Los datos aparecerán cuando haya un conductor asignado."}</span>
                   </div>
                 </div>
-
-                {route?.passenger_details?.length > 0 ? (
-                  <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-                    {route.passenger_details.map((passenger) => (
-                      <div
-                        key={passenger.id}
-                        className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 flex items-center justify-between gap-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">
-                            {passenger.user_detail?.username || `Estudiante #${passenger.id}`}
-                          </p>
-                          <p className="text-xs text-gray-400 truncate">
-                            {passenger.user_detail?.email || "Sin correo registrado"}
-                          </p>
-                        </div>
-                        <span className="text-xs font-mono text-gray-500 whitespace-nowrap">
-                          {passenger.phone || "Sin teléfono"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-400">
-                    No hay más estudiantes registrados en esta ruta.
-                  </div>
+                {driver?.license_number && (
+                  <div className="vt-passenger-license"><span>Licencia</span><strong>{driver.license_number}</strong></div>
+                )}
+                {route?.id && (
+                  <Link to={`/tracking/${route.id}`} className="vt-passenger-tracking-link">
+                    Ver tracking completo {icons.arrowRight({ size: 15, strokeWidth: 2.2 })}
+                  </Link>
                 )}
               </section>
-            </div>
+
+              <section className="vt-passenger-detail-section vt-passenger-stops" aria-labelledby="vt-passenger-stops-title">
+                <div className="vt-passenger-detail-title">
+                  <span className="vt-passenger-detail-icon">{icons.mapPin({ size: 18, strokeWidth: 1.9 })}</span>
+                  <h2 id="vt-passenger-stops-title">Tu trayecto</h2>
+                </div>
+                <div className="vt-passenger-stop-row is-origin">
+                  <span className="vt-passenger-stop-marker" aria-hidden="true" />
+                  <div><span>Origen</span><strong>{route?.origin || "Origen sin registrar"}</strong></div>
+                </div>
+                {myPassenger?.pickup_address && (
+                  <div className="vt-passenger-stop-row is-personal">
+                    <span className="vt-passenger-stop-marker" aria-hidden="true" />
+                    <div><span>Tu parada</span><strong>{myPassenger.pickup_address}</strong></div>
+                  </div>
+                )}
+                {route?.intermediate_stops?.map((stop, index) => (
+                  <div className="vt-passenger-stop-row" key={stop.id || `${stop.name}-${index}`}>
+                    <span className="vt-passenger-stop-marker" aria-hidden="true" />
+                    <div><span>Parada intermedia</span><strong>{stop.name || stop.address || `Parada ${index + 1}`}</strong></div>
+                  </div>
+                ))}
+                <div className="vt-passenger-stop-row is-destination">
+                  <span className="vt-passenger-stop-marker" aria-hidden="true" />
+                  <div><span>Destino</span><strong>{route?.destination || "Destino sin registrar"}</strong></div>
+                </div>
+              </section>
+
+              <section className="vt-passenger-classmates" aria-labelledby="vt-passenger-classmates-title">
+                <div className="vt-passenger-classmates-heading">
+                  <h2 id="vt-passenger-classmates-title">Compañeros de ruta</h2>
+                  <span>{assignedPassengers.length}</span>
+                </div>
+                {assignedPassengers.length > 0 ? (
+                  <ul>
+                    {assignedPassengers.map((passenger) => (
+                      <li key={passenger.id}>
+                        <span className="vt-passenger-classmate-avatar" aria-hidden="true">
+                          {(passenger.user_detail?.username || "P").slice(0, 1).toUpperCase()}
+                        </span>
+                        <div>
+                          <strong>{passenger.user_detail?.username || `Pasajero ${passenger.id}`}</strong>
+                          <span>{passenger.phone || passenger.user_detail?.phone_number || "Pasajero asignado"}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="vt-passenger-no-classmates">No hay otros pasajeros registrados en esta ruta.</p>
+                )}
+              </section>
+            </aside>
           </div>
+        )}
+
+        {!loading && !error && (
+          <footer className="vt-passenger-route-footer">
+            <span>{journeySummary}</span>
+            <span>{wsUiKey === "connected" ? "Actualización en tiempo real" : wsUiKey === "fallback" ? "Actualización de respaldo" : wsUiKey === "connecting" ? "Conectando al seguimiento" : "La conexión se reintentará automáticamente"}</span>
+          </footer>
         )}
       </main>
     </div>

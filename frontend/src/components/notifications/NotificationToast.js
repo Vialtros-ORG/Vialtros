@@ -10,16 +10,17 @@ import {
   MdClose,
 } from "react-icons/md";
 import { useNotifications } from "../../context/NotificationContext";
+import { useAppTheme } from "../../context/ThemeContext";
 
 const TOAST_DURATION_MS = 6000;
 
 const TYPE_CONFIG = {
   route_started: {
     Icon: MdDirectionsBus,
-    bg: "bg-blue-50",
-    border: "border-blue-400",
-    iconColor: "text-blue-600",
-    bar: "bg-blue-500",
+    bg: "bg-teal-50",
+    border: "border-teal-300",
+    iconColor: "text-teal-700",
+    bar: "bg-teal-600",
   },
   student_picked_up: {
     Icon: MdPersonAdd,
@@ -44,10 +45,10 @@ const TYPE_CONFIG = {
   },
   approaching_destination: {
     Icon: MdFlag,
-    bg: "bg-indigo-50",
-    border: "border-indigo-400",
-    iconColor: "text-indigo-600",
-    bar: "bg-indigo-500",
+    bg: "bg-teal-50",
+    border: "border-teal-300",
+    iconColor: "text-teal-700",
+    bar: "bg-teal-600",
   },
   driver_near_stop: {
     Icon: MdWarning,
@@ -58,10 +59,10 @@ const TYPE_CONFIG = {
   },
   driver_near_destination: {
     Icon: MdOutlinedFlag,
-    bg: "bg-purple-50",
-    border: "border-purple-400",
-    iconColor: "text-purple-600",
-    bar: "bg-purple-500",
+    bg: "bg-teal-50",
+    border: "border-teal-300",
+    iconColor: "text-teal-700",
+    bar: "bg-teal-600",
   },
 };
 
@@ -118,6 +119,7 @@ function SingleToast({ toast, onDismiss }) {
 
 export default function NotificationToast() {
   const { toastQueue, dismissToast } = useNotifications();
+  const { resolvedTheme } = useAppTheme();
   const visible = toastQueue.slice(-5);
 
   if (!visible.length) return null;
@@ -137,8 +139,7 @@ export default function NotificationToast() {
           animation: slide-in 0.25s ease-out;
         }
       `}</style>
-      <div
-        className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"
+      <div data-theme={resolvedTheme} className="vt-toast-stack fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"
         aria-live="polite"
       >
         {visible.map((toast) => (

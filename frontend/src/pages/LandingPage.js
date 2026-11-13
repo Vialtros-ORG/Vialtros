@@ -1,700 +1,348 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { LogoIcon } from "../components/Logo";
+import { Link } from "react-router-dom";
+import {
+  FaArrowRight,
+  FaBusSimple,
+  FaBuilding,
+  FaFacebookF,
+  FaGraduationCap,
+  FaInstagram,
+  FaLocationDot,
+  FaMap,
+  FaShieldHalved,
+  FaSliders,
+  FaTiktok,
+  FaYoutube,
+} from "react-icons/fa6";
+import { Logo } from "../components/Logo";
 import { isAuthenticated } from "../services/auth";
-
-// ── Iconos Lucide inline ──────────────────────────────────────────────────────
-const IcoLocation = () => (
-  <svg
-    width="22"
-    height="22"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
-    <circle cx="12" cy="10" r="3" />
-  </svg>
-);
-const IcoBus = () => (
-  <svg
-    width="22"
-    height="22"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <rect x="2" y="4" width="20" height="14" rx="2" />
-    <path d="M2 10h20" />
-    <path d="M7 18v2" />
-    <path d="M17 18v2" />
-    <circle cx="7" cy="14" r="1" />
-    <circle cx="17" cy="14" r="1" />
-  </svg>
-);
-const IcoShield = () => (
-  <svg
-    width="22"
-    height="22"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    <polyline points="9 12 11 14 15 10" />
-  </svg>
-);
-const IcoMap = () => (
-  <svg
-    width="22"
-    height="22"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
-    <line x1="9" y1="3" x2="9" y2="18" />
-    <line x1="15" y1="6" x2="15" y2="21" />
-  </svg>
-);
-const IcoCheck = () => (
-  <svg
-    width="13"
-    height="13"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-const IcoSchool = () => (
-  <svg
-    width="26"
-    height="26"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-    <polyline points="9 22 9 12 15 12 15 22" />
-  </svg>
-);
-const IcoBuilding = () => (
-  <svg
-    width="26"
-    height="26"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <rect x="2" y="3" width="20" height="18" rx="2" />
-    <path d="M8 3v18M16 3v18M2 9h20M2 15h20" />
-  </svg>
-);
-const IcoTruck = () => (
-  <svg
-    width="26"
-    height="26"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <rect x="1" y="3" width="15" height="13" rx="1" />
-    <path d="M16 8h4l3 3v5h-7V8z" />
-    <circle cx="5.5" cy="18.5" r="2.5" />
-    <circle cx="18.5" cy="18.5" r="2.5" />
-  </svg>
-);
-const IcoUsers = () => (
-  <svg
-    width="20"
-    height="20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
-const IcoSettings = () => (
-  <svg
-    width="20"
-    height="20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </svg>
-);
-const IcoRoute = () => (
-  <svg
-    width="20"
-    height="20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <circle cx="6" cy="19" r="3" />
-    <circle cx="18" cy="5" r="3" />
-    <path d="M12 19h4.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H12" />
-  </svg>
-);
-const IcoClipboard = () => (
-  <svg
-    width="20"
-    height="20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-    <line x1="9" y1="12" x2="15" y2="12" />
-    <line x1="9" y1="16" x2="13" y2="16" />
-  </svg>
-);
-const IcoBell = () => (
-  <svg
-    width="20"
-    height="20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-  </svg>
-);
-const IcoHistory = () => (
-  <svg
-    width="20"
-    height="20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <polyline points="1 4 1 10 7 10" />
-    <path d="M3.51 15a9 9 0 1 0 .49-4.5" />
-    <polyline points="12 7 12 12 15 15" />
-  </svg>
-);
-const IcoAlert = () => (
-  <svg
-    width="20"
-    height="20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-    <line x1="12" y1="9" x2="12" y2="13" />
-    <line x1="12" y1="17" x2="12.01" y2="17" />
-  </svg>
-);
-const IcoBarChart = () => (
-  <svg
-    width="20"
-    height="20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    viewBox="0 0 24 24"
-  >
-    <line x1="12" y1="20" x2="12" y2="10" />
-    <line x1="18" y1="20" x2="18" y2="4" />
-    <line x1="6" y1="20" x2="6" y2="16" />
-  </svg>
-);
-
-// ── Datos ─────────────────────────────────────────────────────────────────────
-const FEATURES = [
-  {
-    icon: <IcoLocation />,
-    color: "bg-blue-100 text-blue-600",
-    title: "Tracking en tiempo real",
-    desc: "Monitorea la ubicación exacta de cada vehículo en el mapa con actualizaciones en vivo. Sin retrasos, sin incertidumbre.",
-  },
-  {
-    icon: <IcoBus />,
-    color: "bg-indigo-100 text-indigo-600",
-    title: "Panel centralizado",
-    desc: "Administra rutas, horarios, conductores y pasajeros desde un solo lugar diseñado para operar con claridad.",
-  },
-  {
-    icon: <IcoShield />,
-    color: "bg-blue-100 text-blue-600",
-    title: "Acceso seguro por roles",
-    desc: "Cada usuario ve exactamente lo que necesita. Administradores, conductores y pasajeros con permisos diferenciados.",
-  },
-  {
-    icon: <IcoMap />,
-    color: "bg-indigo-100 text-indigo-600",
-    title: "Control de asistencia",
-    desc: "Registra qué pasajeros fueron atendidos en cada parada. Historial completo por ruta, conductor y fecha.",
-  },
-];
+import landingVideo from "../assets/landing-operations.mp4";
+import landingPoster from "../assets/landing-operations-poster.jpg";
+import "./LandingPage.css";
 
 const SECTORS = [
   {
-    icon: <IcoSchool />,
-    color: "bg-blue-50 text-blue-600",
-    name: "Instituciones educativas",
-    desc: "Control de rutas escolares, asistencia de estudiantes y notificaciones a padres de familia en tiempo real.",
+    number: "01",
+    Icon: FaGraduationCap,
+    title: "Instituciones educativas",
+    description:
+      "Control de rutas escolares, asistencia de estudiantes y notificaciones a las familias.",
   },
   {
-    icon: <IcoBuilding />,
-    color: "bg-indigo-50 text-indigo-600",
-    name: "Empresas corporativas",
-    desc: "Transporte de empleados con visibilidad completa de la flota y reportes automáticos de operación.",
+    number: "02",
+    Icon: FaBuilding,
+    title: "Empresas corporativas",
+    description:
+      "Transporte de empleados con visibilidad de la flota y reportes de operación.",
   },
   {
-    icon: <IcoTruck />,
-    color: "bg-blue-50 text-blue-600",
-    name: "Operadores de transporte",
-    desc: "Gestión de flotas completas, múltiples rutas y conductores desde un panel unificado y profesional.",
+    number: "03",
+    Icon: FaBusSimple,
+    title: "Operadores de transporte",
+    description:
+      "Gestión de flotas, múltiples rutas y conductores desde un panel unificado.",
   },
 ];
 
 const ROLES = [
   {
-    badge: "Administrador",
-    badgeClass: "bg-blue-50 text-blue-700",
+    name: "Administrador",
+    subtitle: "Control de la operación",
     title: "Control total de la operación",
-    desc: "Visión completa del sistema: rutas, conductores, reportes y configuración global.",
-    perks: [
-      { icon: <IcoBarChart />, label: "Panel de control y reportes" },
-      { icon: <IcoUsers />, label: "Gestión de conductores y vehículos" },
-      { icon: <IcoRoute />, label: "Configuración de rutas y paradas" },
-      {
-        icon: <IcoSettings />,
-        label: "Analíticas y configuración del sistema",
-      },
+    description:
+      "Visión completa del sistema: rutas, conductores, reportes y configuración global.",
+    benefits: [
+      "Panel de control y reportes",
+      "Gestión de conductores y vehículos",
+      "Configuración de rutas y paradas",
+      "Analíticas y configuración del sistema",
     ],
-    hover: "hover:border-blue-300",
   },
   {
-    badge: "Conductor",
-    badgeClass: "bg-emerald-50 text-emerald-700",
+    name: "Conductor",
+    subtitle: "Operación en ruta",
     title: "Operación simple y eficiente",
-    desc: "Interfaz clara para ejecutar la ruta asignada y registrar asistencia en cada parada.",
-    perks: [
-      { icon: <IcoRoute />, label: "Ver ruta y paradas del día" },
-      { icon: <IcoClipboard />, label: "Registro de asistencia por parada" },
-      { icon: <IcoAlert />, label: "Reporte de incidencias" },
-      { icon: <IcoHistory />, label: "Historial de viajes" },
+    description:
+      "Consulta la ruta asignada y registra la asistencia de pasajeros en cada parada.",
+    benefits: [
+      "Ver ruta y paradas del día",
+      "Registro de asistencia por parada",
+      "Reporte de incidencias",
+      "Historial de viajes",
     ],
-    hover: "hover:border-emerald-300",
   },
   {
-    badge: "Pasajero",
-    badgeClass: "bg-indigo-50 text-indigo-700",
-    title: "Seguimiento en tiempo real",
-    desc: "Consulta el estado del vehículo, horarios y tu registro de asistencia personal.",
-    perks: [
-      { icon: <IcoLocation />, label: "Ubicación del vehículo en vivo" },
-      { icon: <IcoMap />, label: "Horarios y paradas de su ruta" },
-      { icon: <IcoClipboard />, label: "Historial de asistencia personal" },
-      { icon: <IcoBell />, label: "Notificaciones de llegada" },
+    name: "Pasajero",
+    subtitle: "Seguimiento personal",
+    title: "Seguimiento durante el recorrido",
+    description:
+      "Consulta la información de tu ruta y el avance compartido por el conductor.",
+    benefits: [
+      "Ubicación del vehículo en ruta",
+      "Horarios y paradas asignadas",
+      "Historial de asistencia personal",
+      "Avisos asociados al recorrido",
     ],
-    hover: "hover:border-indigo-300",
   },
 ];
 
-const TRUST = ["Roles diferenciados", "Seguimiento en tiempo real"];
+const SOCIAL_LINKS = [
+  { name: "Instagram", href: "https://instagram.com/vialtros", Icon: FaInstagram },
+  { name: "Facebook", href: "https://facebook.com/vialtros", Icon: FaFacebookF },
+  { name: "TikTok", href: "https://www.tiktok.com/@vialtros", Icon: FaTiktok },
+  { name: "YouTube", href: "https://youtube.com/@vialtros", Icon: FaYoutube },
+];
 
-// ── Componente principal ──────────────────────────────────────────────────────
+const MARQUEE = [
+  "Rutas conectadas",
+  "Gestión de flotas",
+  "Seguimiento GPS",
+  "Información para cada perfil",
+];
+
+function RadarIllustration() {
+  return (
+    <svg className="vt-lp-radar-art" viewBox="0 0 220 220" role="img" aria-label="Ilustración de seguimiento de vehículos">
+      {[30, 60, 90].map((radius) => <circle key={radius} cx="110" cy="110" r={radius} />)}
+      <path d="M110 110V20A90 90 0 0 1 174 46Z" className="vt-lp-radar-sweep" />
+      <line x1="110" y1="14" x2="110" y2="206" />
+      <line x1="14" y1="110" x2="206" y2="110" />
+      <circle cx="110" cy="110" r="6" className="vt-lp-radar-center" />
+      <circle cx="150" cy="62" r="6" className="vt-lp-radar-dot" />
+      <circle cx="68" cy="150" r="6" className="vt-lp-radar-dot vt-lp-radar-dot--amber" />
+      <circle cx="164" cy="140" r="6" className="vt-lp-radar-dot vt-lp-radar-dot--green" />
+    </svg>
+  );
+}
+
 export default function LandingPage() {
-  const navigate = useNavigate();
-  const [isAuth, setIsAuth] = useState(false);
+  const [activeRole, setActiveRole] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoAvailable, setVideoAvailable] = useState(true);
+  const [videoVisible, setVideoVisible] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  const authenticated = isAuthenticated();
+  const actionPath = authenticated ? "/dashboard" : "/login";
+  const actionLabel = authenticated ? "Ir al panel" : "Acceder al sistema";
+  const role = ROLES[activeRole];
 
   useEffect(() => {
-    setIsAuth(isAuthenticated());
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduceMotion(media.matches);
+    media.addEventListener?.("change", update);
+    return () => media.removeEventListener?.("change", update);
   }, []);
 
-  const handlePrimaryAction = () => {
-    navigate(isAuth ? "/dashboard" : "/login");
+  useEffect(() => {
+    if (!videoReady || !videoAvailable || reduceMotion) return undefined;
+    const rotation = window.setInterval(() => setVideoVisible((visible) => !visible), 9000);
+    return () => window.clearInterval(rotation);
+  }, [videoReady, videoAvailable, reduceMotion]);
+
+  useEffect(() => {
+    const titles = document.querySelectorAll(".vt-lp-reveal-title");
+    const elements = document.querySelectorAll(
+      ".vt-lp-scroll-reveal, .vt-lp-intro > .vt-lp-eyebrow, .vt-lp-intro > .vt-lp-lead, .vt-lp-marquee-track span, .vt-lp-trust span, .vt-lp-socials a, .vt-lp-footer-inner > *",
+    );
+    const revealAll = () => {
+      [...titles, ...elements].forEach((element) => element.classList.add("is-visible"));
+    };
+
+    elements.forEach((element, index) => {
+      element.classList.add("vt-lp-scroll-reveal");
+      element.style.setProperty("--lp-reveal-delay", `${(index % 4) * 75}ms`);
+    });
+
+    if (
+      !("IntersectionObserver" in window) ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      revealAll();
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.2, rootMargin: "0px 0px -36px 0px" },
+    );
+
+    [...titles, ...elements].forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [activeRole]);
+
+  const changeRoleByKey = (event) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const delta = event.key === "ArrowDown" ? 1 : -1;
+    const nextRole = (activeRole + delta + ROLES.length) % ROLES.length;
+    setActiveRole(nextRole);
+    document.getElementById(`vt-lp-tab-${nextRole}`)?.focus();
   };
 
-  const buttonLabel = isAuth ? "Ir al panel" : "Acceder al sistema";
-
   return (
-    <div className="min-h-screen w-full flex flex-col bg-gradient-to-r from-blue-100 to-indigo-200 font-sans">
-      {/* NAV */}
-      <nav className="w-full sticky top-0 z-50 bg-white/50 backdrop-blur border-b border-gray-100 px-8 md:px-20 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <LogoIcon size={30} color="#2563eb" />
-          <span className="font-bold text-gray-900 text-xl tracking-tight">
-            Vialtros
-          </span>
-        </div>
-        <ul className="hidden md:flex items-center gap-10 list-none m-0 p-0">
-          <li>
-            <a
-              href="#sectores"
-              className="text-gray-500 hover:text-gray-900 text-base transition-colors no-underline"
-            >
-              Sectores
-            </a>
-          </li>
-          <li>
-            <a
-              href="#caracteristicas"
-              className="text-gray-500 hover:text-gray-900 text-base transition-colors no-underline"
-            >
-              Características
-            </a>
-          </li>
-          <li>
-            <a
-              href="#roles"
-              className="text-gray-500 hover:text-gray-900 text-base transition-colors no-underline"
-            >
-              Roles
-            </a>
-          </li>
-        </ul>
+    <div className="vt-lp">
+      <a className="vt-lp-skip" href="#vt-lp-main">Saltar al contenido</a>
+
+      <nav className="vt-lp-nav" aria-label="Navegación principal">
+        <Logo to="/" variant="light" iconSize={30} />
         <button
-          onClick={handlePrimaryAction}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-base font-medium px-6 py-2.5 rounded-lg transition-all shadow-sm"
-        >
-          {buttonLabel}
-        </button>
+          className="vt-lp-menu"
+          type="button"
+          aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
+          aria-expanded={menuOpen}
+          aria-controls="vt-lp-nav-links"
+          onClick={() => setMenuOpen((isOpen) => !isOpen)}
+        ><span /><span /><span /></button>
+        <div className={`vt-lp-navlinks${menuOpen ? " is-open" : ""}`} id="vt-lp-nav-links">
+          <a href="#sectores" onClick={() => setMenuOpen(false)}>Sectores</a>
+          <a href="#caracteristicas" onClick={() => setMenuOpen(false)}>Características</a>
+          <a href="#roles" onClick={() => setMenuOpen(false)}>Roles</a>
+        </div>
+        <Link className="vt-lp-button vt-lp-primary vt-lp-nav-action" to={actionPath}>{actionLabel}</Link>
       </nav>
 
-      {/* HERO */}
-      <section className="w-full px-8 md:px-20 pt-20 pb-20 flex flex-col md:flex-row items-center gap-16 bg-gradient-to-r from-blue-100 to-indigo-200">
-        <div className="flex-1 flex flex-col items-start">
-          <span className="inline-flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-600 text-sm font-medium px-4 py-1.5 rounded-full mb-7 uppercase tracking-wider">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full inline-block"></span>
-            Plataforma SaaS · En vivo
-          </span>
-          <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight mb-6 tracking-tight">
-            El sistema que tu
-            <br />
-            flota necesitaba
-            <br />
-            <span className="text-blue-600">desde siempre</span>
-          </h1>
-          <p className="text-gray-500 text-xl mb-10 max-w-xl leading-relaxed font-normal">
-            Vialtros centraliza el control de rutas, conductores y pasajeros
-            para empresas, colegios e instituciones que necesitan visibilidad
-            total de su operación.
-          </p>
-          <div className="flex gap-4 mb-10">
-            <button
-              onClick={handlePrimaryAction}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-4 rounded-xl shadow-md transition-all text-base flex items-center gap-2"
-            >
-              {buttonLabel} <span>→</span>
-            </button>
-            <a
-              href="#caracteristicas"
-              className="border border-gray-200 hover:border-blue-300 text-gray-600 hover:text-blue-700 font-medium px-8 py-4 rounded-xl bg-white transition-all text-base no-underline shadow-sm"
-            >
-              Ver características
-            </a>
-          </div>
-          <div className="flex flex-wrap gap-6">
-            {TRUST.map((t) => (
-              <span
-                key={t}
-                className="flex items-center gap-2 text-sm text-gray-500"
+      <main id="vt-lp-main">
+        <header className="vt-lp-hero" id="inicio">
+          <div className="vt-lp-hero-visual" aria-hidden="true">
+            <img
+              className={`vt-lp-hero-image${videoVisible ? " is-hidden" : ""}`}
+              src={landingPoster}
+              alt=""
+            />
+            {videoAvailable && !reduceMotion && (
+              <video
+                className={`vt-lp-hero-video${videoVisible ? " is-visible" : ""}`}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                poster={landingPoster}
+                aria-hidden="true"
+                tabIndex={-1}
+                onPlay={() => setVideoReady(true)}
+                onPause={() => {
+                  setVideoReady(false);
+                  setVideoVisible(false);
+                }}
+                onError={() => setVideoAvailable(false)}
               >
-                <span className="text-emerald-500">
-                  <IcoCheck />
-                </span>
-                {t}
-              </span>
+                <source src={landingVideo} type="video/mp4" />
+              </video>
+            )}
+            <span />
+          </div>
+          <div className="vt-lp-wrap vt-lp-hero-content">
+            <div className="vt-lp-hero-copy">
+              <span className="vt-lp-badge"><i /> Gestión de transporte</span>
+              <h1 className="vt-lp-display vt-lp-title">
+                <span>Cada trayecto,</span>
+                <span className="vt-lp-title-accent">siempre a la vista.</span>
+              </h1>
+              <p className="vt-lp-lead">Coordina rutas, conductores y pasajeros. Sigue el avance de cada vehículo en tiempo real.</p>
+              <div className="vt-lp-actions">
+                <Link className="vt-lp-button vt-lp-primary vt-lp-big" to={actionPath}>{actionLabel}<FaArrowRight aria-hidden="true" /></Link>
+                <a className="vt-lp-button vt-lp-ghost vt-lp-big" href="#caracteristicas">Ver características</a>
+              </div>
+              <div className="vt-lp-trust"><span>✓ Para empresas y colegios</span><span>✓ Seguimiento en tiempo real</span></div>
+            </div>
+          </div>
+          <a className="vt-lp-scroll" href="#sectores" aria-label="Desplazarse a Sectores" />
+        </header>
+
+        <div className="vt-lp-marquee" aria-hidden="true">
+          <div className="vt-lp-marquee-track">
+            {[0, 1].map((copy) => (
+              <div className="vt-lp-marquee-group" key={copy}>
+                {MARQUEE.map((item) => <span key={item}>{item}</span>)}
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Dashboard card */}
-        <div className="flex-1 w-full max-w-lg">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl p-6 relative overflow-hidden">
-            <div className="absolute -top-12 -right-12 w-48 h-48 bg-blue-50 rounded-full opacity-70"></div>
-            <div className="flex items-center justify-between mb-5 relative z-10">
-              <span className="text-sm font-semibold text-gray-400 uppercase tracking-widest">
-                Rutas activas hoy
-              </span>
-              <span className="flex items-center gap-2 text-emerald-500 text-sm font-medium">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse inline-block"></span>
-                En vivo
-              </span>
-            </div>
-            <div className="flex flex-col gap-3 mb-5 relative z-10">
-              {[
-                {
-                  color: "bg-blue-500",
-                  name: "Ruta Norte — Centro",
-                  stops: "12 paradas · 34 pasajeros",
-                  status: "En curso",
-                  statusClass: "bg-emerald-50 text-emerald-600",
-                },
-                {
-                  color: "bg-amber-400",
-                  name: "Ruta Sur — Terminal",
-                  stops: "8 paradas · 21 pasajeros",
-                  status: "Demorada",
-                  statusClass: "bg-amber-50 text-amber-600",
-                },
-                {
-                  color: "bg-gray-300",
-                  name: "Ruta Este — Industrial",
-                  stops: "6 paradas · 0 pasajeros",
-                  status: "En espera",
-                  statusClass: "bg-gray-100 text-gray-400",
-                },
-              ].map((r) => (
-                <div
-                  key={r.name}
-                  className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 border border-gray-100"
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${r.color}`}
-                    ></span>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800 leading-none mb-1">
-                        {r.name}
-                      </p>
-                      <p className="text-xs text-gray-400">{r.stops}</p>
-                    </div>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${r.statusClass}`}>{r.status}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-6 mt-6">
-              {[
-                { val: "247", lbl: "Pasajeros" },
-                { val: "94%", lbl: "Puntualidad", accent: true },
-              ].map((s) => (
-                <div
-                  key={s.lbl}
-                  className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center"
-                >
-                  <span
-                    className={`block text-2xl font-bold ${s.accent ? "text-emerald-500" : "text-gray-900"}`}
-                  >
-                    {s.val}
-                  </span>
-                  <span className="block text-xs text-gray-400 mt-1">
-                    {s.lbl}
-                  </span>
-                </div>
-              ))}
+        <section className="vt-lp-section" id="sectores" aria-labelledby="vt-lp-sectors-title">
+          <div className="vt-lp-wrap">
+            <div className="vt-lp-intro"><span className="vt-lp-eyebrow vt-lp-scroll-reveal">Sectores</span><h2 className="vt-lp-display vt-lp-reveal-title" id="vt-lp-sectors-title">Pensado para quien<br />mueve personas</h2><p className="vt-lp-lead vt-lp-scroll-reveal">Vialtros se adapta a las organizaciones que necesitan coordinar su flota y dar seguimiento a sus pasajeros.</p></div>
+            <div className="vt-lp-sectors">{SECTORS.map(({ number, Icon, title, description }) => <article className="vt-lp-sector vt-lp-scroll-reveal" key={number}><div className="vt-lp-sector-inner"><span className="vt-lp-number" aria-hidden="true">{number}</span><span className="vt-lp-sector-icon"><Icon aria-hidden="true" /></span><h3>{title}</h3><p>{description}</p></div></article>)}</div>
+          </div>
+        </section>
+
+        <section className="vt-lp-section vt-lp-features" id="caracteristicas" aria-labelledby="vt-lp-features-title">
+          <div className="vt-lp-wrap">
+            <div className="vt-lp-intro"><span className="vt-lp-eyebrow vt-lp-scroll-reveal">Características</span><h2 className="vt-lp-display vt-lp-reveal-title" id="vt-lp-features-title">Todo en una sola<br />plataforma</h2><p className="vt-lp-lead vt-lp-scroll-reveal">Información útil para coordinar recorridos y dar seguimiento a cada etapa de la operación.</p></div>
+            <div className="vt-lp-bento">
+              <article className="vt-lp-tile vt-lp-tile-wide vt-lp-scroll-reveal"><div className="vt-lp-tile-copy"><span className="vt-lp-kicker"><FaLocationDot aria-hidden="true" /></span><h3>Seguimiento en ruta</h3><p>Consulta la ubicación compartida por el conductor y revisa el avance de los recorridos activos.</p></div><RadarIllustration /></article>
+              <article className="vt-lp-tile vt-lp-scroll-reveal"><span className="vt-lp-kicker"><FaShieldHalved aria-hidden="true" /></span><h3>Acceso por roles</h3><p>Cada usuario encuentra las herramientas y la información correspondientes a su perfil.</p></article>
+              <article className="vt-lp-tile vt-lp-tile-half vt-lp-scroll-reveal"><span className="vt-lp-kicker"><FaSliders aria-hidden="true" /></span><h3>Panel centralizado</h3><p>Administra rutas, horarios, conductores y pasajeros desde un mismo lugar.</p><div className="vt-lp-pills"><span>Rutas</span><span>Horarios</span><span>Conductores</span><span>Pasajeros</span></div></article>
+              <article className="vt-lp-tile vt-lp-tile-half vt-lp-scroll-reveal"><span className="vt-lp-kicker"><FaMap aria-hidden="true" /></span><h3>Control de asistencia</h3><p>Consulta los registros de cada recorrido por ruta, conductor y fecha.</p><div className="vt-lp-checks">{[1, 2, 3, 4].map((stop) => <span key={stop}><i>✓</i>Parada {stop}</span>)}</div></article>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* SECTORS */}
-      <section
-        id="sectores"
-        className="w-full px-8 md:px-20 py-24 bg-gradient-to-r from-blue-100 to-indigo-200"
-      >
-        <div className="w-12 h-0.5 bg-blue-600 mb-5"></div>
-        <p className="text-blue-600 text-sm font-semibold uppercase tracking-widest mb-3">
-          Sectores
-        </p>
-        <h2 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">
-          Pensado para quien
-          <br />
-          mueve personas
-        </h2>
-        <p className="text-gray-500 mb-14 max-w-xl text-lg font-normal leading-relaxed">
-          Vialtros se adapta a cualquier organización que necesite controlar su
-          flota y garantizar la seguridad de sus pasajeros.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {SECTORS.map((s) => (
-            <div
-              key={s.name}
-              className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all"
-            >
-              <div
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${s.color}`}
-              >
-                {s.icon}
+        <section className="vt-lp-section" id="roles" aria-labelledby="vt-lp-roles-title">
+          <div className="vt-lp-wrap">
+            <div className="vt-lp-intro"><span className="vt-lp-eyebrow vt-lp-scroll-reveal">Roles</span><h2 className="vt-lp-display vt-lp-reveal-title" id="vt-lp-roles-title">Cada perfil tiene<br />su propio espacio</h2></div>
+            <div className="vt-lp-role-grid">
+              <div className="vt-lp-tabs" role="tablist" aria-label="Perfiles de usuario" aria-orientation="vertical">{ROLES.map(({ name, subtitle }, index) => <button className="vt-lp-scroll-reveal" key={name} id={`vt-lp-tab-${index}`} role="tab" aria-selected={activeRole === index} aria-controls="vt-lp-role-panel" tabIndex={activeRole === index ? 0 : -1} onClick={() => setActiveRole(index)} onKeyDown={changeRoleByKey}><strong>{name}</strong><span>{subtitle}</span></button>)}</div>
+              <article className="vt-lp-role-panel vt-lp-scroll-reveal" id="vt-lp-role-panel" role="tabpanel" aria-labelledby={`vt-lp-tab-${activeRole}`} key={activeRole}><span className="vt-lp-role-badge">{role.name}</span><h3 className="vt-lp-display">{role.title}</h3><p>{role.description}</p><ul>{role.benefits.map((benefit) => <li key={benefit}><span>✓</span>{benefit}</li>)}</ul></article>
+            </div>
+          </div>
+        </section>
+
+        <section className="vt-lp-section vt-lp-cta-section" id="acceso" aria-labelledby="vt-lp-cta-title">
+          <div className="vt-lp-wrap">
+            <div className="vt-lp-cta vt-lp-scroll-reveal">
+              <svg className="vt-lp-cta-map-art" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <defs>
+                  <pattern id="vt-lp-cta-city" width="220" height="180" patternUnits="userSpaceOnUse" patternTransform="rotate(-8)">
+                    <rect width="220" height="180" fill="#0d1f25" />
+                    <g fill="#183139" opacity=".6">
+                      <path d="M8 8h72v48H8zM98 8h45v48H98zM160 8h52v48h-52z" />
+                      <path d="M8 74h45v42H8zM70 74h73v42H70zM160 74h52v42h-52z" />
+                      <path d="M8 134h72v38H8zM98 134h45v38H98zM160 134h52v38h-52z" />
+                    </g>
+                    <path d="M0 64h220M0 126h220M88 0v180M152 0v180" fill="none" stroke="rgba(145,184,191,.13)" strokeWidth="10" />
+                  </pattern>
+                  <radialGradient id="vt-lp-cta-radar">
+                    <stop offset="0" stopColor="#3fb3c2" stopOpacity=".12" />
+                    <stop offset="1" stopColor="#3fb3c2" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
+                <rect width="1440" height="900" fill="url(#vt-lp-cta-city)" />
+                <path d="M-100 835c165-90 220-35 370-98l92-43c112-51 216-49 316-99l150-74c127-63 266-60 690-210" fill="none" stroke="rgba(63,179,194,.12)" strokeWidth="30" />
+                <g className="vt-lp-cta-radar" fill="none" stroke="rgba(145,184,191,.14)">
+                  <circle cx="1120" cy="430" r="170" />
+                  <circle cx="1120" cy="430" r="285" strokeDasharray="4 14" />
+                  <circle cx="1120" cy="430" r="400" />
+                  <circle cx="1120" cy="430" r="170" fill="url(#vt-lp-cta-radar)" stroke="none" />
+                </g>
+                <g className="vt-lp-cta-route" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M-80 710H220V540H550V360H880V270H1210H1510" stroke="rgba(63,179,194,.28)" strokeWidth="6" />
+                  <path d="M330 960V810H770V540H1100V90H1510" stroke="rgba(190,157,94,.2)" strokeWidth="4" />
+                </g>
+                <circle className="vt-lp-cta-location" cx="1120" cy="430" r="20" />
+                <circle className="vt-lp-cta-location vt-lp-cta-location-secondary" cx="930" cy="720" r="12" />
+              </svg>
+              <div className="vt-lp-cta-copy">
+                <h2 className="vt-lp-display vt-lp-reveal-title" id="vt-lp-cta-title">Tu operación merece más visibilidad</h2>
+                <p>Empieza hoy. Sin configuraciones complejas.</p>
+                <Link className="vt-lp-button vt-lp-primary vt-lp-big" to={actionPath}>{actionLabel}<FaArrowRight aria-hidden="true" /></Link>
               </div>
-              <h3 className="font-bold text-gray-900 mb-3 text-xl">{s.name}</h3>
-              <p className="text-gray-500 text-base leading-relaxed">
-                {s.desc}
-              </p>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* FEATURES */}
-      <section
-        id="caracteristicas"
-        className="w-full px-8 md:px-20 py-24 bg-gradient-to-r from-blue-100 to-indigo-200"
-      >
-        <div className="w-12 h-0.5 bg-blue-600 mb-5"></div>
-        <p className="text-blue-600 text-sm font-semibold uppercase tracking-widest mb-3">
-          Características
-        </p>
-        <h2 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">
-          Todo en una sola
-          <br />
-          plataforma
-        </h2>
-        <p className="text-gray-500 mb-14 max-w-xl text-lg font-normal leading-relaxed">
-          Sin hojas de Excel, sin llamadas al conductor. Control total de tu
-          operación desde el navegador.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-gray-100 rounded-2xl overflow-hidden border border-gray-100">
-          {FEATURES.map((f) => (
-            <div
-              key={f.title}
-              className="bg-white p-10 hover:bg-blue-50/40 transition-colors"
-            >
-              <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center mb-6 ${f.color}`}
-              >
-                {f.icon}
-              </div>
-              <h3 className="font-bold text-gray-900 mb-3 text-xl">
-                {f.title}
-              </h3>
-              <p className="text-gray-500 text-base leading-relaxed">
-                {f.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ROLES */}
-      <section
-        id="roles"
-        className="w-full px-8 md:px-20 py-24 bg-gradient-to-r from-blue-100 to-indigo-200"
-      >
-        <div className="w-12 h-0.5 bg-blue-600 mb-5"></div>
-        <p className="text-blue-600 text-sm font-semibold uppercase tracking-widest mb-3">
-          Roles
-        </p>
-        <h2 className="text-4xl font-extrabold text-gray-900 mb-14 tracking-tight">
-          Cada perfil tiene
-          <br />
-          su propio espacio
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {ROLES.map((r) => (
-            <div
-              key={r.badge}
-              className={`bg-white border border-gray-200 rounded-2xl p-8 transition-all hover:-translate-y-1 hover:shadow-lg ${r.hover}`}
-            >
-              <span
-                className={`inline-block text-sm font-semibold px-4 py-1.5 rounded-full mb-5 uppercase tracking-wide ${r.badgeClass}`}
-              >
-                {r.badge}
-              </span>
-              <h3 className="font-bold text-gray-900 mb-3 text-xl">
-                {r.title}
-              </h3>
-              <p className="text-gray-500 text-base mb-7 leading-relaxed">
-                {r.desc}
-              </p>
-              <ul className="space-y-3 list-none p-0 m-0">
-                {r.perks.map((p) => (
-                  <li
-                    key={p.label}
-                    className="flex items-center gap-3 text-base text-gray-600"
-                  >
-                    <span className="text-blue-400 flex-shrink-0">
-                      {p.icon}
-                    </span>
-                    {p.label}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CTA BAND */}
-      <section className="w-full px-8 md:px-20 py-24 bg-gradient-to-r from-blue-100 to-indigo-200">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-14 md:p-20 flex flex-col md:flex-row items-center justify-between gap-10 relative overflow-hidden">
-          <div className="absolute -left-20 -top-20 w-80 h-80 bg-white/5 rounded-full"></div>
-          <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-white/5 rounded-full"></div>
-          <div className="relative z-10">
-            <h2 className="text-4xl font-extrabold text-white mb-3 leading-tight">
-              Tu operación merece
-              <br />
-              más visibilidad
-            </h2>
-            <p className="text-blue-200 text-lg font-normal">
-              Empieza hoy. Sin configuraciones complejas.
-            </p>
           </div>
-          <div className="flex gap-4 relative z-10 flex-shrink-0">
-            <button
-              onClick={handlePrimaryAction}
-              className="bg-white hover:bg-blue-50 text-blue-700 font-semibold px-8 py-4 rounded-xl text-base transition-all shadow-md"
-            >
-              {buttonLabel} →
-            </button>
-          </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      {/* FOOTER eliminado, ahora se usa el global */}
+      <footer className="vt-lp-footer"><div className="vt-lp-footer-inner"><Logo to="/" variant="light" iconSize={26} /><nav className="vt-lp-footer-links" aria-label="Enlaces informativos"><Link to="/privacy">Privacidad</Link><Link to="/terms">Términos</Link><Link to="/support">Soporte</Link></nav><div className="vt-lp-socials" role="group" aria-label="Redes sociales de Vialtros">{SOCIAL_LINKS.map(({ name, href, Icon }) => <a key={name} href={href} target="_blank" rel="noopener noreferrer" aria-label={`Vialtros en ${name}`}><Icon aria-hidden="true" /></a>)}</div></div></footer>
     </div>
   );
 }

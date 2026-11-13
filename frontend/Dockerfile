@@ -1,0 +1,41 @@
+# Etapa 1: construir la aplicacion React
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm ci
+
+COPY . .
+
+# Variables disponibles durante la compilación de React
+ARG REACT_APP_API_URL=http://localhost:8000/api
+ARG REACT_APP_WS_URL=ws://localhost:8000/ws
+ARG REACT_APP_GOOGLE_MAPS_API_KEY=
+ARG REACT_APP_GOOGLE_MAPS_MAP_ID=
+ARG REACT_APP_GOOGLE_ROUTES_API_KEY=
+ARG REACT_APP_MAPBOX_TOKEN=
+
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+ENV REACT_APP_WS_URL=${REACT_APP_WS_URL}
+ENV REACT_APP_GOOGLE_MAPS_API_KEY=${REACT_APP_GOOGLE_MAPS_API_KEY}
+ENV REACT_APP_GOOGLE_MAPS_MAP_ID=${REACT_APP_GOOGLE_MAPS_MAP_ID}
+ENV REACT_APP_GOOGLE_ROUTES_API_KEY=${REACT_APP_GOOGLE_ROUTES_API_KEY}
+ENV REACT_APP_MAPBOX_TOKEN=${REACT_APP_MAPBOX_TOKEN}
+
+RUN npm run build
+
+
+# Etapa 2: servir los archivos estaticos
+FROM node:20-alpine AS serve
+
+WORKDIR /app
+
+RUN npm install --global serve
+
+COPY --from=build /app/build ./build
+
+EXPOSE 3000
+
+CMD ["serve", "-s", "build", "-l", "3000"]

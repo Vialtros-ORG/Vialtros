@@ -1,8 +1,22 @@
 import api from "./api";
 
 export async function getTrackingsByRoute(routeId) {
-  const response = await api.get(`/tracking/?route=${routeId}`);
+  const normalizedRouteId = Number(routeId);
+  if (!Number.isSafeInteger(normalizedRouteId) || normalizedRouteId <= 0) {
+    throw new TypeError("routeId debe ser un entero positivo");
+  }
+
+  const response = await api.get("/tracking/", {
+    params: { route: normalizedRouteId },
+  });
   return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function getRouteHistoryPage(routeId, { limit = 250, offset = 0 } = {}) {
+  const response = await api.get("/tracking/", {
+    params: { route: routeId, history: 1, limit, offset },
+  });
+  return response.data;
 }
 
 export async function updateTrackingStatus(trackingId, status) {

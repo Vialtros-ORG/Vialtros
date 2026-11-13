@@ -67,7 +67,7 @@
   font-weight: 700;
   font-size: 12px;
   color: #1a3a52;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
   padding-bottom: 8px;
@@ -94,7 +94,7 @@
   height: 16px;
   border-radius: 50%;
   border: 2px solid #ffffff;
-  background: #2563eb;
+  background: #0b8290;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
@@ -110,7 +110,7 @@
 }
 
 .legend-marker.destination-dot {
-  background: #1d4ed8;
+  background: #095b68;
 }
 
 .legend-line {
@@ -223,7 +223,7 @@
 }
 
 .location-marker.destination {
-  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  background: linear-gradient(135deg, #095b68 0%, #0b6e80 100%);
   box-shadow: 0 4px 16px rgba(29, 78, 216, 0.35);
 }
 

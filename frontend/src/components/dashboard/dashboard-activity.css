@@ -1,0 +1,9 @@
+.vt-dashboard-activity { border-color:var(--vt-line); }
+.vt-dashboard-activity > div:first-child { background:color-mix(in srgb,var(--vt-teal) 4%,var(--vt-surface)); }
+.vt-dashboard-activity-row > div:first-child { border-color:var(--vt-line); box-shadow:none; }
+.vt-dashboard-activity-footer a { color:var(--vt-teal) !important; }
+.vt-dashboard-activity-footer a:hover { color:color-mix(in srgb,var(--vt-teal) 78%,var(--vt-ink)) !important; }
+.vialtros-app[data-theme="dark"] .vt-dashboard-activity-row:hover { background:#19333a !important; }
+.vialtros-app[data-theme="dark"] .vt-dashboard-activity-row > div:first-child { border-color:#2b454c; }
+.vialtros-app[data-theme="dark"] .vt-dashboard-activity .text-slate-300 { color:#b0c3c7; }
+@media(prefers-reduced-motion:reduce) { .vt-dashboard-activity-row,.vt-dashboard-activity-icon { transition:none; } }

@@ -16,7 +16,8 @@ const FIELD_MASK_BASIC =
 
 // Cache para rutas
 const routeCache = new Map();
-const ROUTE_CACHE_LS_KEY = "google_routes_cache_v1";
+// Bumped when polyline quality changes so simplified routes are not reused.
+const ROUTE_CACHE_LS_KEY = "google_routes_cache_v2";
 const ROUTE_CACHE_MAX_ENTRIES = 200;
 
 // Cargar caché persistente
@@ -126,6 +127,7 @@ export async function getStreetRoute(origin, destination, options = {}) {
       },
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_AWARE_OPTIMAL", // Considera tráfico
+      polylineQuality: "HIGH_QUALITY",
       computeAlternativeRoutes: false,
       languageCode: "es",
       units: "METRIC",
@@ -246,6 +248,7 @@ export async function getStreetRouteThroughPoints(waypoints, options = {}) {
       })),
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_AWARE_OPTIMAL",
+      polylineQuality: "HIGH_QUALITY",
       languageCode: "es",
       units: "METRIC",
     };
@@ -302,10 +305,8 @@ export async function getStreetRouteThroughPoints(waypoints, options = {}) {
  */
 export async function snapPointToRoad(coords) {
   if (!coords || !Array.isArray(coords) || coords.length !== 2) return coords;
-  
-  // Por ahora, retorna las coordenadas sin cambios
-  // Para implementar: usar Google Roads API (roadSnapping endpoint)
-  // Requiere habilitación adicional en Google Cloud
+  // Roads API no está habilitada en este proyecto; conserva el punto GPS
+  // original en vez de afirmar que fue ajustado a una vía.
   return coords;
 }
 

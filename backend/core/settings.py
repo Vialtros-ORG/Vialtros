@@ -11,8 +11,10 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import secrets
 from datetime import timedelta
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
 
@@ -26,14 +28,21 @@ load_dotenv(BASE_DIR / '.env')
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-dev-only-change-in-production')
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'www.vialtros.ds1.eleueleo.com,vialtros.ds1.eleueleo.com').split(',')
+# A known fallback key makes it possible to forge signed tokens in production.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '').strip()
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = secrets.token_urlsafe(64)
+    else:
+        raise ImproperlyConfigured('DJANGO_SECRET_KEY es obligatorio cuando DJANGO_DEBUG=False.')
 
+ALLOWED_HOSTS = os.environ.get(
+    'DJANGO_ALLOWED_HOSTS',
+    'localhost,127.0.0.1'
+).split(',')
 
 # Application definition
 
@@ -58,6 +67,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -97,6 +107,7 @@ ASGI_APPLICATION = 'core.asgi.application'
 DB_ENGINE = os.environ.get('DB_ENGINE', '').strip()
 DB_HOST = os.environ.get('DB_HOST', '').strip()
 
+DB_SSLMODE = os.environ.get('DB_SSLMODE', 'require')
 if DB_ENGINE == 'django.db.backends.postgresql' or DB_HOST:
     DATABASES = {
         'default': {
@@ -107,8 +118,8 @@ if DB_ENGINE == 'django.db.backends.postgresql' or DB_HOST:
             'HOST': os.environ.get('DB_HOST', ''),
             'PORT': os.environ.get('DB_PORT', '5432'),
             'OPTIONS': {
-                'sslmode': 'require',
-            }
+    'sslmode': DB_SSLMODE,
+}
         }
     }
 else:
@@ -155,17 +166,19 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
-
-if DEBUG:
-    # En desarrollo local, dejamos que Django busque el CSS automáticamente
-    STATIC_ROOT = None
-else:
-    # En producción (nube), se guardan en carpetas fijas
-    STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STATICFILES_DIRS = []
 
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 # Django REST Framework config
 # Django REST Framework config
 REST_FRAMEWORK = {
@@ -313,4 +326,4 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = f'Vialtros <{os.environ.get("EMAIL_HOST_USER", "")}>'
 EMAIL_TIMEOUT = 10
-FRONTEND_URL = 'https://www.vialtros.ds1.com'
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000').rstrip('/')

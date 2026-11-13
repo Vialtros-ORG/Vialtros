@@ -28,15 +28,13 @@ export default function Footer() {
     { icon: FaMapMarkerAlt,   text: "Buenaventura, Valle del Cauca",  href: null },
   ];
 
-  const handleLogoClick = (e) => {
-    if (location.pathname === "/") {
-      e.preventDefault();
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
+  if (location.pathname === "/") return null;
+
 
   return (
-    <footer className="w-full bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 mt-auto">
+    <footer
+      className="w-full bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 mt-auto"
+    >
 
       {/* Cuerpo principal */}
       <div className="px-8 md:px-20 pt-10 pb-6">
@@ -46,7 +44,6 @@ export default function Footer() {
           <div className="flex flex-col gap-3">
             <Link
               to="/"
-              onClick={handleLogoClick}
               aria-label="Ir al inicio de Vialtros"
               className="font-bold text-white text-xl focus:outline-none no-underline"
               style={{ textDecoration: "none" }}

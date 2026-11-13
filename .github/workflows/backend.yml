@@ -1,0 +1,46 @@
+name: Backend CI (Modular)
+
+on:
+  workflow_call:
+
+jobs:
+  docker-build-and-test:
+    name: Backend CI Job
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build backend Docker image
+        run: docker build -t vialtros-backend:${{ github.sha }} ./backend
+
+      - name: Generate an ephemeral Django key for CI
+        shell: bash
+        run: |
+          DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(64))')"
+          echo "::add-mask::$DJANGO_SECRET_KEY"
+          echo "DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY" >> "$GITHUB_ENV"
+
+      - name: Run Django checks inside container
+        run: docker run --rm -e DJANGO_SECRET_KEY vialtros-backend:${{ github.sha }} python manage.py check
+
+      - name: Run backend tests inside container
+        run: docker run --rm -e DJANGO_SECRET_KEY vialtros-backend:${{ github.sha }} python manage.py test
+
+      - name: Smoke test container startup
+        run: |
+          container_name=vialtros-backend-smoke
+          trap 'docker rm -f "$container_name" >/dev/null 2>&1 || true' EXIT
+          docker run -d --name "$container_name" -e DJANGO_SECRET_KEY vialtros-backend:${{ github.sha }}
+
+          for attempt in {1..30}; do
+            if docker exec "$container_name" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/admin/login/', timeout=2)"; then
+              echo "Django admin returned HTTP successfully."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs "$container_name"
+          exit 1

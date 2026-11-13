@@ -3,49 +3,22 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import React from "react";
 import { GoogleMap, Polyline, OverlayView } from "@react-google-maps/api";
 import { useGoogleMaps } from "../context/GoogleMapsContext";
-import { FaUniversity, FaSchool, FaHospital, FaGasPump, FaTree, FaShoppingBag, FaMapMarkerAlt } from "react-icons/fa";
+import { toLatLng, safeLatLngPath, getArrowSvg, buildVoiceInstruction, buildInstructionText, getAheadDirectionLine, getVehicleRotation, buildAnimationPath, totalPathDistance, getPointAtDistance, lineDistanceKm, getPoiIcon } from "./mapUtils";
 import "./map-styles.css";
 
-// ---------------------------------------------------------------------------
-// Helpers de coordenadas
-// ---------------------------------------------------------------------------
-function toLatLng(coords) {
-  if (!Array.isArray(coords) || coords.length < 2) return null;
-  const [lat, lng] = coords;
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng };
-}
-
-function toLatLngArray(coordsArray) {
-  if (!Array.isArray(coordsArray)) return [];
-  return coordsArray
-    .filter((c) => Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1]))
-    .map(([lat, lng]) => ({ lat, lng }));
-}
-
-function safeLatLngPath(coordsArray) {
-  const path = toLatLngArray(coordsArray);
-  return path.length > 1 ? path : null;
-}
-
-// ---------------------------------------------------------------------------
-// Constantes
-// ---------------------------------------------------------------------------
 // Set REACT_APP_GOOGLE_MAPS_MAP_ID in .env to enable Vector Maps (heading + tilt in GPS mode)
 const GOOGLE_MAPS_MAP_ID = process.env.REACT_APP_GOOGLE_MAPS_MAP_ID || "";
 const USE_VECTOR_MAP = Boolean(GOOGLE_MAPS_MAP_ID);
 const WORLD_CENTER = [0, 0];
-const CORPORATE_ROUTE_COLOR = "#2563EB";
-const ROUTE_COLOR = "#4285F4";
-const ROUTE_COLOR_SHADOW = "#1558D6";
-const ROUTE_TRAVELED_COLOR = "#1A73E8";
-
+const CORPORATE_ROUTE_COLOR = "#0b8290";
+const ROUTE_COLOR = "#0b6e80";
+const ROUTE_COLOR_SHADOW = "#075765";
+const ROUTE_TRAVELED_COLOR = "#075765";
+const ROUTE_REMAINING_COLOR = "#008f9f";
 const GOOGLE_MAPS_STYLES = [];
-
 // Cache de POIs para evitar llamadas repetidas a Overpass API
 const _poiCache = new Map();
-const POI_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
-
+const POI_CACHE_TTL_MS = 5 * 60 * 1000;
 const GOOGLE_MAPS_OPTIONS = {
   mapTypeControl: false,
   streetViewControl: false,
@@ -59,7 +32,22 @@ const GOOGLE_MAPS_OPTIONS = {
     : { styles: GOOGLE_MAPS_STYLES }),
 };
 
-// Modo navegación GPS: mapa claro simplificado, sin POIs distractores
+const MAP_DARK_STYLES = [
+  { elementType: "geometry", stylers: [{ color: "#132a32" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#b8cbd0" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#132a32" }] },
+  { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#304b54" }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#18372f" }] },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#1b3439" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#9db6ba" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#243e47" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#18313a" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#a9bec3" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#315563" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#203942" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0d252e" }] },
+];
+
 const GPS_NAV_STYLES = [
   { featureType: "poi", stylers: [{ visibility: "off" }] },
   { featureType: "transit", stylers: [{ visibility: "off" }] },
@@ -69,7 +57,6 @@ const GPS_NAV_STYLES = [
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#b3d4e8" }] },
 ];
 
-// Modo noche GPS: mapa oscuro estilo conducción nocturna
 const GPS_NIGHT_STYLES = [
   { featureType: "all", elementType: "geometry", stylers: [{ color: "#1a1a2e" }] },
   { featureType: "all", elementType: "labels.text.fill", stylers: [{ color: "#a0aec0" }] },
@@ -87,308 +74,9 @@ const GPS_NIGHT_STYLES = [
   { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#1e2535" }] },
 ];
 
-function getArrowSvg(modifier, type, color = "#1a56db") {
-  const C = color;
-  // Ícono de llegada — pin de destino
-  if (type === "arrive") {
-    return (
-      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M20 4C15.03 4 11 8.03 11 13c0 7.25 9 20 9 20s9-12.75 9-20c0-4.97-4.03-9-9-9z" fill={C}/>
-        <circle cx="20" cy="13" r="4" fill="#ffffff"/>
-      </svg>
-    );
-  }
-  const mod = (modifier || "straight").toLowerCase();
-
-  // Giro a la izquierda — flecha curva izquierda
-  if (mod === "left" || mod === "sharp left") {
-    return (
-      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="17" y="18" width="6" height="16" rx="3" fill={C}/>
-        <path d="M20 18C20 12 10 12 10 18" stroke={C} strokeWidth="5.5" strokeLinecap="round" fill="none"/>
-        <path d="M5 14l6-5 1 10z" fill={C}/>
-      </svg>
-    );
-  }
-  // Giro a la derecha — flecha curva derecha
-  if (mod === "right" || mod === "sharp right") {
-    return (
-      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="17" y="18" width="6" height="16" rx="3" fill={C}/>
-        <path d="M20 18C20 12 30 12 30 18" stroke={C} strokeWidth="5.5" strokeLinecap="round" fill="none"/>
-        <path d="M35 14l-6-5-1 10z" fill={C}/>
-      </svg>
-    );
-  }
-  // Giro leve a la izquierda
-  if (mod === "slight left") {
-    return (
-      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="17" y="18" width="6" height="16" rx="3" fill={C}/>
-        <path d="M20 18C20 14 14 11 10 13" stroke={C} strokeWidth="5" strokeLinecap="round" fill="none"/>
-        <path d="M5 9l6 1-1 8z" fill={C}/>
-      </svg>
-    );
-  }
-  // Giro leve a la derecha
-  if (mod === "slight right") {
-    return (
-      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="17" y="18" width="6" height="16" rx="3" fill={C}/>
-        <path d="M20 18C20 14 26 11 30 13" stroke={C} strokeWidth="5" strokeLinecap="round" fill="none"/>
-        <path d="M35 9l-6 1 1 8z" fill={C}/>
-      </svg>
-    );
-  }
-  // Media vuelta
-  if (mod === "uturn") {
-    return (
-      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M26 34V18a6 6 0 0 0-12 0v2" stroke={C} strokeWidth="5.5" strokeLinecap="round" fill="none"/>
-        <path d="M9 24l5-6 5 6" fill={C}/>
-      </svg>
-    );
-  }
-  // Continuar recto — flecha arriba estándar
-  return (
-    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="17" y="16" width="6" height="20" rx="3" fill={C}/>
-      <path d="M20 4L9 17h22z" fill={C}/>
-    </svg>
-  );
-}
-
-function buildVoiceInstruction(step) {
-  const dirMap = {
-    "left": "gire a la izquierda",
-    "sharp left": "gire fuertemente a la izquierda",
-    "slight left": "manténgase a la izquierda",
-    "right": "gire a la derecha",
-    "sharp right": "gire fuertemente a la derecha",
-    "slight right": "manténgase a la derecha",
-    "straight": "continúe recto",
-    "uturn": "dé un giro en U",
-  };
-  if (step?.type === "arrive") return step.name ? `llegando al destino en ${step.name}` : "ha llegado al destino";
-  const action = dirMap[(step?.modifier || "").toLowerCase()] || "continúe";
-  return step?.name ? `${action} en ${step.name}` : action;
-}
-
-function buildInstructionText(step) {
-  const dirMap = {
-    "left": "Gira a la izquierda",
-    "sharp left": "Gira a la izquierda",
-    "slight left": "Mantente a la izquierda",
-    "right": "Gira a la derecha",
-    "sharp right": "Gira a la derecha",
-    "slight right": "Mantente a la derecha",
-    "straight": "Continúa recto",
-    "uturn": "Da un giro en U",
-  };
-
-  if (step?.type === "arrive") return "Llegaste al destino";
-  return dirMap[(step?.modifier || "").toLowerCase()] || "Continúa recto";
-}
-
-
-function projectPointOnSegment(point, start, end) {
-  const startX = start[1];
-  const startY = start[0];
-  const endX = end[1];
-  const endY = end[0];
-  const pointX = point[1];
-  const pointY = point[0];
-  const dx = endX - startX;
-  const dy = endY - startY;
-  const segmentLengthSquared = dx * dx + dy * dy;
-
-  if (segmentLengthSquared === 0) {
-    const distSquared = (pointX - startX) ** 2 + (pointY - startY) ** 2;
-    return { t: 0, distanceSquared: distSquared };
-  }
-
-  const t = Math.max(
-    0,
-    Math.min(
-      1,
-      ((pointX - startX) * dx + (pointY - startY) * dy) / segmentLengthSquared,
-    ),
-  );
-  const projectedX = startX + dx * t;
-  const projectedY = startY + dy * t;
-  const distanceSquared =
-    (pointX - projectedX) ** 2 + (pointY - projectedY) ** 2;
-
-  return { t, distanceSquared };
-}
-
-function getSegmentRotation(start, end) {
-  const deltaLat = end[0] - start[0];
-  const deltaLng = end[1] - start[1];
-  if (
-    !Number.isFinite(deltaLat) ||
-    !Number.isFinite(deltaLng) ||
-    (deltaLat === 0 && deltaLng === 0)
-  ) {
-    return 0;
-  }
-  return Math.atan2(-deltaLat, deltaLng) * (180 / Math.PI);
-}
-
-/**
- * Retorna los segmentos de la ruta planificada ADELANTE del vehículo
- * para calcular el bearing hacia donde va, no hacia donde fue.
- */
-function getAheadDirectionLine(plannedLine, vehiclePoint) {
-  if (!Array.isArray(plannedLine) || plannedLine.length < 2 || !Array.isArray(vehiclePoint))
-    return plannedLine;
-
-  let closestIndex = 0;
-  let closestDist = Infinity;
-  for (let i = 0; i < plannedLine.length - 1; i++) {
-    const { distanceSquared } = projectPointOnSegment(vehiclePoint, plannedLine[i], plannedLine[i + 1]);
-    if (distanceSquared < closestDist) {
-      closestDist = distanceSquared;
-      closestIndex = i;
-    }
-  }
-  // Toma los proximos 5 segmentos adelante para suavizar el bearing
-  const slice = plannedLine.slice(closestIndex, closestIndex + 6);
-  return slice.length >= 2 ? slice : plannedLine;
-}
-
-function getVehicleRotation(line, vehiclePoint) {
-  if (!Array.isArray(line) || line.length < 2) return 0;
-
-  if (!Array.isArray(vehiclePoint) || vehiclePoint.length !== 2) {
-    return getSegmentRotation(line[line.length - 2], line[line.length - 1]);
-  }
-
-  let closestSegmentIndex = 0;
-  let closestDistanceSquared = Number.POSITIVE_INFINITY;
-
-  for (let index = 0; index < line.length - 1; index += 1) {
-    const start = line[index];
-    const end = line[index + 1];
-    if (!start || !end) continue;
-
-    const { distanceSquared } = projectPointOnSegment(vehiclePoint, start, end);
-    if (distanceSquared < closestDistanceSquared) {
-      closestDistanceSquared = distanceSquared;
-      closestSegmentIndex = index;
-    }
-  }
-
-  return getSegmentRotation(
-    line[closestSegmentIndex],
-    line[closestSegmentIndex + 1],
-  );
-}
-
-function distanceBetweenPoints(from, to) {
-  if (!Array.isArray(from) || !Array.isArray(to)) return 0;
-  const deltaLat = to[0] - from[0];
-  const deltaLng = to[1] - from[1];
-  return Math.sqrt(deltaLat * deltaLat + deltaLng * deltaLng);
-}
-
-function interpolatePoint(from, to, progress) {
-  return [
-    from[0] + (to[0] - from[0]) * progress,
-    from[1] + (to[1] - from[1]) * progress,
-  ];
-}
-
-function buildAnimationPath(
-  targetPoint,
-  traveledLine,
-  previousPoint,
-  previousLineLength,
-) {
-  if (Array.isArray(traveledLine) && traveledLine.length > 1) {
-    const startIndex =
-      previousLineLength > 1 ? Math.max(previousLineLength - 1, 0) : 0;
-    const nextPath = traveledLine.slice(startIndex);
-    if (Array.isArray(previousPoint) && nextPath.length > 0) {
-      if (distanceBetweenPoints(previousPoint, nextPath[0]) > 0.00001) {
-        return [previousPoint, ...nextPath];
-      }
-    }
-    return nextPath;
-  }
-
-  if (Array.isArray(previousPoint) && Array.isArray(targetPoint)) {
-    return [previousPoint, targetPoint];
-  }
-
-  return Array.isArray(targetPoint) ? [targetPoint] : [];
-}
-
-function totalPathDistance(path) {
-  let total = 0;
-  for (let index = 1; index < path.length; index += 1) {
-    total += distanceBetweenPoints(path[index - 1], path[index]);
-  }
-  return total;
-}
-
-function getPointAtDistance(path, distance) {
-  if (path.length === 0) return null;
-  if (path.length === 1 || distance <= 0) return path[0];
-
-  let traversed = 0;
-  for (let index = 1; index < path.length; index += 1) {
-    const start = path[index - 1];
-    const end = path[index];
-    const segmentDistance = distanceBetweenPoints(start, end);
-
-    if (traversed + segmentDistance >= distance) {
-      const localProgress =
-        segmentDistance === 0 ? 1 : (distance - traversed) / segmentDistance;
-      return interpolatePoint(start, end, localProgress);
-    }
-
-    traversed += segmentDistance;
-  }
-
-  return path[path.length - 1];
-}
-
-function lineDistanceKm(line = []) {
-  if (!Array.isArray(line) || line.length < 2) return 0;
-  const toRad = (v) => (v * Math.PI) / 180;
-  const earthKm = 6371;
-  let total = 0;
-  for (let i = 1; i < line.length; i += 1) {
-    const [lat1, lng1] = line[i - 1];
-    const [lat2, lng2] = line[i];
-    if (!Number.isFinite(lat1) || !Number.isFinite(lng1) || !Number.isFinite(lat2) || !Number.isFinite(lng2)) continue;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lng2 - lng1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    total += earthKm * c;
-  }
-  return total;
-}
-
-function getPoiIcon(tags = {}) {
-  const amenity = (tags.amenity || "").toLowerCase();
-  const shop = (tags.shop || "").toLowerCase();
-  const leisure = (tags.leisure || "").toLowerCase();
-
-  if (amenity === "university") return <FaUniversity />;
-  if (amenity === "school") return <FaSchool />;
-  if (amenity === "hospital") return <FaHospital />;
-  if (amenity === "fuel") return <FaGasPump />;
-  if (leisure === "park") return <FaTree />;
-  if (shop && /mall|supermarket|department_store/.test(shop)) return <FaShoppingBag />;
-
-  return <FaMapMarkerAlt />;
-}
+// ---------------------------------------------------------------------------
+// Helpers de coordenadas
+// ---------------------------------------------------------------------------
 
 /**
  * @param {Object[]}          trackings         Puntos de tracking del bus.
@@ -428,6 +116,7 @@ export default function MapView({
   onExitGps = null,
   isAdmin = false,
   isDriver = false,
+  routeActive = false,
   darkMode = false,
 }) {
   const { isLoaded: mapsApiLoaded, loadError: mapsApiLoadError, authError: mapsApiAuthError } = useGoogleMaps();
@@ -455,6 +144,7 @@ export default function MapView({
   const lastPoiFetchTimeRef = useRef(0);
   const fittedOnceRef = useRef(false);
   const lastFitLengthRef = useRef(-1);
+  const previousRouteActiveRef = useRef(false);
   const firstFollowRef = useRef(true);
   const userMovedMapRef = useRef(true);
   const containerRef = useRef(null);
@@ -468,6 +158,21 @@ export default function MapView({
   const suppressListenerRef = useRef(false);
   const [mapZoomLevel, setMapZoomLevel] = useState(14);
   const [selectedVehicleKey, setSelectedVehicleKey] = useState(null);
+  const routeColor = darkMode ? "#55bec8" : ROUTE_COLOR;
+  const routeShadowColor = darkMode ? "#287d88" : ROUTE_COLOR_SHADOW;
+  const corporateRouteColor = darkMode ? "#64c7cf" : CORPORATE_ROUTE_COLOR;
+  const traveledSegmentColor = darkMode ? "#669da2" : ROUTE_TRAVELED_COLOR;
+  const remainingSegmentColor = darkMode ? "#62d5df" : ROUTE_REMAINING_COLOR;
+
+  const mapOptions = useMemo(() => {
+    if (darkMode && !gpsMode) {
+      const options = { ...GOOGLE_MAPS_OPTIONS };
+      delete options.mapId;
+      options.styles = MAP_DARK_STYLES;
+      return options;
+    }
+    return GOOGLE_MAPS_OPTIONS;
+  }, [darkMode, gpsMode]);
 
 
   const handleMapLoad = useCallback((map) => {
@@ -484,6 +189,10 @@ export default function MapView({
         setIsVectorMap(isVectorAfterTiles);
       }
     });
+  }, []);
+  const handleMapUnmount = useCallback(() => {
+    setMapRef(null);
+    setIsVectorMap(false);
   }, []);
 
   // Cerrar menú GPS al hacer click fuera
@@ -666,7 +375,21 @@ export default function MapView({
     return 2;
   }, [focusAllVehicles, latestPoint, originCoords, destinationCoords, userCoords]);
 
-  function resolvePoiCoords() {
+  const vehiclePoint = useMemo(() => {
+    if (
+      Number.isFinite(vehiclePosition?.latitude) &&
+      Number.isFinite(vehiclePosition?.longitude)
+    ) {
+      return [
+        Number(vehiclePosition.latitude),
+        Number(vehiclePosition.longitude),
+      ];
+    }
+
+    return latestPoint;
+  }, [latestPoint, vehiclePosition?.latitude, vehiclePosition?.longitude]);
+
+  const resolvePoiCoords = useCallback(() => {
     if (Array.isArray(vehiclePoint)) {
       return vehiclePoint;
     }
@@ -682,7 +405,7 @@ export default function MapView({
     }
 
     return Array.isArray(center) ? center : null;
-  }
+  }, [vehiclePoint, mapRef, center]);
 
   const loadLocalPois = useCallback(async () => {
     try {
@@ -879,19 +602,6 @@ out center;`;
     ],
   );
 
-  const vehiclePoint = useMemo(() => {
-    if (
-      Number.isFinite(vehiclePosition?.latitude) &&
-      Number.isFinite(vehiclePosition?.longitude)
-    ) {
-      return [
-        Number(vehiclePosition.latitude),
-        Number(vehiclePosition.longitude),
-      ];
-    }
-
-    return latestPoint;
-  }, [latestPoint, vehiclePosition?.latitude, vehiclePosition?.longitude]);
   const effectiveVehiclePoint = useMemo(
     () => animatedVehiclePoint || vehiclePoint,
     [animatedVehiclePoint, vehiclePoint],
@@ -918,10 +628,10 @@ out center;`;
       lastPoisFetchCoordsRef.current = coords;
       const mapZoom = mapRef?.getZoom ? mapRef.getZoom() : 13;
       const radius = Math.max(600, Math.round(2000 * Math.pow(2, 13 - (mapZoom || 13)) / 4));
-      fetchPOIs(coords[0], coords[1], radius);
+      void fetchPOIs(coords[0], coords[1], radius);
     }, 5000);
     return () => { if (poisTimerRef.current) clearTimeout(poisTimerRef.current); };
-  }, [vehiclePoint, mapRef, center, fetchPOIs]);
+  }, [vehiclePoint, mapRef, center, fetchPOIs, resolvePoiCoords]);
 
   // FitBounds: ajusta el viewport cuando cambian las coordenadas de la ruta
   useEffect(() => {
@@ -949,6 +659,23 @@ out center;`;
     suppressListenerRef.current = false;
     fittedOnceRef.current = true;
   }, [mapRef, fitCoords, focusAllVehicles, hasLiveTrackings]);
+
+  useEffect(() => {
+    const justStarted = routeActive && !previousRouteActiveRef.current;
+    previousRouteActiveRef.current = routeActive;
+    if (!mapRef || !justStarted || !effectiveVehiclePoint) return;
+
+    const [lat, lng] = effectiveVehiclePoint;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    userMovedMapRef.current = false;
+    suppressListenerRef.current = true;
+    mapRef.panTo({ lat, lng });
+    mapRef.setZoom(16);
+    window.setTimeout(() => {
+      suppressListenerRef.current = false;
+    }, 300);
+  }, [mapRef, routeActive, effectiveVehiclePoint]);
 
   const primaryVehicle = useMemo(
     () =>
@@ -997,7 +724,7 @@ out center;`;
 
   // AutoFollowVehicle: centra el mapa en el vehiculo cuando el seguimiento está activo
   useEffect(() => {
-    if (!mapRef || !effectiveVehiclePoint || focusAllVehicles || !hasLiveTrackings) return;
+    if (!mapRef || !effectiveVehiclePoint || focusAllVehicles || (!hasLiveTrackings && !routeActive)) return;
     const [lat, lng] = effectiveVehiclePoint;
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
@@ -1054,7 +781,7 @@ out center;`;
     if (userMovedMapRef.current) return;
     mapRef.panTo({ lat, lng });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapRef, effectiveVehiclePoint, focusAllVehicles, hasLiveTrackings, gpsMode, activeVehicles, isVectorMap]);
+  }, [mapRef, effectiveVehiclePoint, focusAllVehicles, hasLiveTrackings, routeActive, gpsMode, activeVehicles, isVectorMap]);
 
   const plannedKm = Math.round((plannedLine?.length > 1 ? lineDistanceKm(plannedLine) : 0) * 10) / 10;
   const traveledKm = Math.round((traveledLine?.length > 1 ? lineDistanceKm(traveledLine) : 0) * 10) / 10;
@@ -1063,8 +790,8 @@ out center;`;
   // Aplica estilos del mapa según modo (GPS/noche/normal)
   useEffect(() => {
     if (!mapRef) return;
-    if (USE_VECTOR_MAP) {
-      // Con mapId activo, styles está prohibido — usar colorScheme (Cloud Styling)
+    if (mapOptions.mapId) {
+      // Cuando hay mapId, Google Maps exige administrar el estilo en Cloud Console.
       const isDark = (gpsMode && gpsNightMode) || (!gpsMode && darkMode);
       try {
         const scheme = isDark
@@ -1078,7 +805,7 @@ out center;`;
     if (gpsMode) {
       styles = gpsNightMode ? GPS_NIGHT_STYLES : GPS_NAV_STYLES;
     } else {
-      styles = darkMode ? GPS_NIGHT_STYLES : GOOGLE_MAPS_STYLES;
+      styles = darkMode ? MAP_DARK_STYLES : GOOGLE_MAPS_STYLES;
     }
     mapRef.setOptions({
       styles,
@@ -1089,7 +816,7 @@ out center;`;
       rotateControl: false,
       panControl: false,
     });
-  }, [mapRef, gpsMode, gpsNightMode, darkMode, isVectorMap]);
+  }, [mapRef, gpsMode, gpsNightMode, darkMode, mapOptions]);
 
   const nextStep = useMemo(() => {
     if (!gpsMode || !Array.isArray(navigationSteps) || !vehiclePoint) return null;
@@ -1264,13 +991,16 @@ out center;`;
       setClickedPlace({ lat, lng, address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, loading: false });
       return;
     }
-    new window.google.maps.Geocoder().geocode({ location: { lat, lng } }, (results, status) => {
-      const address =
-        status === "OK" && results?.[0]
-          ? results[0].formatted_address
-          : `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      setClickedPlace({ lat, lng, address, loading: false });
-    });
+    const fallbackAddress = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    void new window.google.maps.Geocoder()
+      .geocode({ location: { lat, lng } })
+      .then(({ results }) => {
+        const address = results?.[0]?.formatted_address || fallbackAddress;
+        setClickedPlace({ lat, lng, address, loading: false });
+      })
+      .catch(() => {
+        setClickedPlace({ lat, lng, address: fallbackAddress, loading: false });
+      });
   }, [gpsMode]);
 
   return (
@@ -1291,8 +1021,10 @@ out center;`;
           center={toLatLng(center) || { lat: WORLD_CENTER[0], lng: WORLD_CENTER[1] }}
           zoom={defaultZoom}
           onLoad={handleMapLoad}
+          onUnmount={handleMapUnmount}
           onClick={handleMapClick}
-          options={GOOGLE_MAPS_OPTIONS}
+          key={`vialtros-map-${darkMode ? "dark" : "light"}-${gpsMode ? "gps" : "route"}`}
+          options={mapOptions}
         >
           {/* ---- Rutas superpuestas (modo admin / focus all) — solo cuando hay ruta resaltada ---- */}
           {highlightedRouteIdSet.size > 0 && normalizedRouteOverlays.map((overlay) => {
@@ -1305,13 +1037,13 @@ out center;`;
                 {isHighlighted && (
                   <Polyline
                     path={path}
-                    options={{ strokeColor: "#3B82F6", strokeWeight: 14, strokeOpacity: 0.07, geodesic: true }}
+                    options={{ strokeColor: darkMode ? "#42aeb8" : "#0b8290", strokeWeight: 14, strokeOpacity: 0.09, geodesic: true }}
                   />
                 )}
                 <Polyline
                   path={path}
                   options={{
-                    strokeColor: "#FFFFFF",
+                    strokeColor: darkMode ? "#132a32" : "#FFFFFF",
                     strokeWeight: isHighlighted ? 9 : 6,
                     strokeOpacity: isDimmed ? 0.04 : isHighlighted ? 0.60 : 0.45,
                     geodesic: true,
@@ -1320,7 +1052,7 @@ out center;`;
                 <Polyline
                   path={path}
                   options={{
-                    strokeColor: isHighlighted ? "#1D4ED8" : CORPORATE_ROUTE_COLOR,
+                    strokeColor: isHighlighted ? (darkMode ? "#82d6dd" : "#075765") : corporateRouteColor,
                     strokeWeight: isHighlighted ? 5 : 3,
                     strokeOpacity: isDimmed ? 0.15 : isHighlighted ? 0.95 : 0.85,
                     geodesic: true,
@@ -1335,47 +1067,47 @@ out center;`;
             <>
               <Polyline
                 path={plannedPath}
-                options={{ strokeColor: ROUTE_COLOR_SHADOW, strokeWeight: 10, strokeOpacity: 0.06, geodesic: true }}
+                options={{ strokeColor: routeShadowColor, strokeWeight: 10, strokeOpacity: 0.1, geodesic: true }}
               />
               <Polyline
                 path={plannedPath}
-                options={{ strokeColor: "#FFFFFF", strokeWeight: 7, strokeOpacity: 0.55, geodesic: true }}
+                options={{ strokeColor: darkMode ? "#10252c" : "#FFFFFF", strokeWeight: 7, strokeOpacity: darkMode ? 0.85 : 0.55, geodesic: true }}
               />
               <Polyline
                 path={plannedPath}
-                options={{ strokeColor: ROUTE_COLOR, strokeWeight: 5, strokeOpacity: 1.0, geodesic: true }}
+                options={{ strokeColor: routeColor, strokeWeight: 5, strokeOpacity: 1.0, geodesic: true }}
               />
             </>
           )}
 
-          {/* ---- Tramo restante — azul Google Maps, grosor profesional ---- */}
+          {/* El tramo pendiente mantiene el acento brillante para guiar la vista. */}
           {remainingPath && !isAdmin && (
             <>
               <Polyline
                 path={remainingPath}
-                options={{ strokeColor: ROUTE_COLOR_SHADOW, strokeWeight: 10, strokeOpacity: 0.06, geodesic: true }}
+                options={{ strokeColor: routeShadowColor, strokeWeight: 10, strokeOpacity: 0.16, geodesic: true, zIndex: 2 }}
               />
               <Polyline
                 path={remainingPath}
-                options={{ strokeColor: "#FFFFFF", strokeWeight: 7, strokeOpacity: 0.55, geodesic: true }}
+                options={{ strokeColor: darkMode ? "#10252c" : "#FFFFFF", strokeWeight: 7, strokeOpacity: darkMode ? 0.72 : 0.32, geodesic: true, zIndex: 3 }}
               />
               <Polyline
                 path={remainingPath}
-                options={{ strokeColor: ROUTE_COLOR, strokeWeight: 5, strokeOpacity: 1.0, geodesic: true }}
+                options={{ strokeColor: remainingSegmentColor, strokeWeight: 5, strokeOpacity: 1.0, geodesic: true, zIndex: 4 }}
               />
             </>
           )}
 
-          {/* ---- Tramo recorrido — azul intenso diferenciado, misma familia visual ---- */}
+          {/* El tramo recorrido usa un tono profundo y menor intensidad. */}
           {traveledPath && !isAdmin && (
             <>
               <Polyline
                 path={traveledPath}
-                options={{ strokeColor: "#FFFFFF", strokeWeight: 5, strokeOpacity: 0.18, geodesic: true }}
+                options={{ strokeColor: darkMode ? "#10252c" : "#FFFFFF", strokeWeight: 7, strokeOpacity: darkMode ? 0.72 : 0.28, geodesic: true, zIndex: 1 }}
               />
               <Polyline
                 path={traveledPath}
-                options={{ strokeColor: ROUTE_TRAVELED_COLOR, strokeWeight: 5, strokeOpacity: 0.55, geodesic: true }}
+                options={{ strokeColor: traveledSegmentColor, strokeWeight: 5, strokeOpacity: 0.96, geodesic: true, zIndex: 2 }}
               />
             </>
           )}
@@ -1429,9 +1161,9 @@ out center;`;
               <div style={{ transform: "translate(-50%, -100%)" }}>
                 <div className="vt-dest-pin">
                   <svg width="28" height="36" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M14 1C7.37 1 2 6.37 2 13c0 8.63 12 22 12 22S26 21.63 26 13C26 6.37 20.63 1 14 1z" fill="#1d4ed8" stroke="white" strokeWidth="1.8"/>
+                    <path d="M14 1C7.37 1 2 6.37 2 13c0 8.63 12 22 12 22S26 21.63 26 13C26 6.37 20.63 1 14 1z" fill="#0b6e80" stroke="white" strokeWidth="1.8"/>
                     <circle cx="14" cy="13" r="5" fill="white"/>
-                    <circle cx="14" cy="13" r="2.5" fill="#1d4ed8"/>
+                    <circle cx="14" cy="13" r="2.5" fill="#0b6e80"/>
                   </svg>
                 </div>
               </div>
@@ -1451,7 +1183,7 @@ out center;`;
                 >
                   {(() => {
                     const isMoving = primaryVehicle.status === "En ruta";
-                    const dotColor = isMoving ? "#2563eb" : "#64748b";
+                    const dotColor = isMoving ? "#0b8290" : "#64748b";
                     const wedgeColor = isMoving ? "rgba(37,99,235,0.42)" : "rgba(100,116,139,0.35)";
                     const geoHeading = (primaryVehicleRotation + 90 + 360) % 360;
                     if (gpsMode) {
@@ -1531,7 +1263,7 @@ out center;`;
                   >
                     {(() => {
                       const isMoving = vehicle.status === "En ruta";
-                      const dotColor = isMoving ? "#2563eb" : "#64748b";
+                      const dotColor = isMoving ? "#0b8290" : "#64748b";
                       if (mapZoomLevel <= 12) {
                         return (
                           <div className="vt-marker-dot-wrap">
@@ -1602,7 +1334,7 @@ out center;`;
               <div className="map-click-popup">
                 <div className="map-click-popup-header">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#2563EB"/>
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#0b6e80"/>
                   </svg>
                   <span className="map-click-popup-coords">
                     {clickedPlace.lat.toFixed(5)}, {clickedPlace.lng.toFixed(5)}
@@ -1764,8 +1496,8 @@ out center;`;
 
 
       {/* ---- Leyenda ---- */}
-      {!isAdmin && !isDriver && !gpsMode && (
-        <div className="map-legend">
+      {!isAdmin && !gpsMode && (!isDriver || routeActive) && (
+        <div className={`map-legend${darkMode ? " map-legend-dark" : ""}`}>
           <div className="legend-title">Leyenda</div>
           {primaryVehicle && (
             <div className="legend-item">

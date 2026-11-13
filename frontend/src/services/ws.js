@@ -1,11 +1,16 @@
 // Servicio para conexión WebSocket de tracking en tiempo real
 
 export function resolveWsBaseUrl() {
-  if (process.env.REACT_APP_WS_URL) {
-    return process.env.REACT_APP_WS_URL.replace(/\/+$/, "");
+  const configuredWsUrl = process.env.REACT_APP_WS_URL?.trim();
+  if (configuredWsUrl) {
+    let end = configuredWsUrl.length;
+    while (end > 0 && configuredWsUrl[end - 1] === "/") {
+      end -= 1;
+    }
+    return configuredWsUrl.slice(0, end);
   }
 
-  const apiUrl = process.env.REACT_APP_API_URL;
+  const apiUrl = process.env.REACT_APP_API_URL?.trim();
   if (apiUrl) {
     try {
       const url = new URL(apiUrl);
@@ -22,6 +27,11 @@ export function resolveWsBaseUrl() {
   }
 
   return "ws://localhost/ws";
+}
+
+export function getWebSocketProtocols() {
+  const token = localStorage.getItem("access") || "";
+  return token ? ["vialtros", `vialtros.jwt.${token}`] : ["vialtros"];
 }
 
 function parseIncomingMessage(rawText) {
@@ -56,7 +66,7 @@ function extractLocationUpdate(payload) {
   if (eventName === "position_update" || eventName === "tracking_update") {
     const nested = payload.data || payload.payload || payload.position;
     if (nested && typeof nested === "object") {
-      return nested;
+      return normalizeLocationPayload(nested) || nested;
     }
   }
 
@@ -84,13 +94,21 @@ export function connectTrackingWS(routeId, onMessage, handlers = {}) {
     maxReconnectAttempts = 20,
   } = handlers;
 
+  const safeReconnectDelay = Math.max(Number(reconnectDelayMs) || 1500, 500);
+  const safeMaxReconnectAttempts = Math.max(
+    Number(maxReconnectAttempts) || 20,
+    0,
+  );
+
   let socket = null;
   let closedManually = false;
   let wasConnected = false;
   let reconnectAttempts = 0;
   let reconnectTimer = null;
 
-  if (!Number.isFinite(Number(routeId))) {
+  const normalizedRouteId = Number(routeId);
+
+  if (!Number.isFinite(normalizedRouteId)) {
     throw new Error("connectTrackingWS requiere un routeId numerico");
   }
 
@@ -99,8 +117,8 @@ export function connectTrackingWS(routeId, onMessage, handlers = {}) {
   }
 
   const connect = () => {
-    const wsUrl = `${resolveWsBaseUrl()}/tracking/${routeId}/`;
-    socket = new WebSocket(wsUrl);
+    const wsUrl = `${resolveWsBaseUrl()}/tracking/${normalizedRouteId}/`;
+    socket = new WebSocket(wsUrl, getWebSocketProtocols());
 
     socket.onopen = () => {
       wasConnected = true;
@@ -136,11 +154,14 @@ export function connectTrackingWS(routeId, onMessage, handlers = {}) {
     socket.onclose = () => {
       if (closedManually) return;
       if (onClose) onClose();
-      const effectiveMax = wasConnected ? maxReconnectAttempts : 5;
+      const effectiveMax = wasConnected ? safeMaxReconnectAttempts : 5;
       if (reconnectAttempts >= effectiveMax) return;
 
       reconnectAttempts += 1;
-      const delay = Math.min(reconnectDelayMs * 2 ** reconnectAttempts, 30000);
+      const delay = Math.min(
+  safeReconnectDelay * 2 ** reconnectAttempts,
+  30000,
+);
       reconnectTimer = setTimeout(connect, delay);
     };
   };
@@ -148,13 +169,6 @@ export function connectTrackingWS(routeId, onMessage, handlers = {}) {
   connect();
 
   return {
-    send: (payload) => {
-      if (!socket || socket.readyState !== WebSocket.OPEN) return false;
-      socket.send(
-        typeof payload === "string" ? payload : JSON.stringify(payload),
-      );
-      return true;
-    },
     getReadyState: () => socket?.readyState ?? WebSocket.CLOSED,
     close: () => {
       closedManually = true;

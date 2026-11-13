@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
  * por dos trazos en forma de V hasta un pin de destino abajo.
  * Representa: red de rutas, transporte, movilidad.
  */
-export function LogoIcon({ size = 26, color = "#2563EB" }) {
+export function LogoIcon({ size = 26, color = "#0B6E80" }) {
   return (
     <svg
       width={size}
@@ -54,8 +54,8 @@ export function LogoIcon({ size = 26, color = "#2563EB" }) {
  *   "light"   → icono blanco + texto blanco (para fondos oscuros/azul)
  */
 export function Logo({ variant = "default", iconSize = 26, to }) {
-  const iconColor = variant === "light" ? "#ffffff" : "#2563EB";
-  const textColor = variant === "light" ? "#ffffff" : "#111827";
+  const iconColor = variant === "light" ? "#3FB3C2" : "#0B6E80";
+  const textColor = variant === "light" ? "#ffffff" : "#0D2833";
 
   const content = (
     <div

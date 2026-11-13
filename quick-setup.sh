@@ -79,7 +79,7 @@ if [[ ! $REPLY =~ ^[Ss]$ ]]; then
 # ===== CONFIGURACIÓN DE DJANGO (PRODUCCIÓN) =====
 DJANGO_SECRET_KEY=t40z8_wl3zb_9f3xd7zdf+yk2@zk%e-&t_=j#86h4xh83=6d$
 DJANGO_DEBUG=False
-DJANGO_ALLOWED_HOSTS=vialtros.ds1.eleueleo.com,www.vialtros.ds1.eleueleo.com,127.0.0.1,localhost
+DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
 
 # ===== CONFIGURACIÓN DE BASE DE DATOS (NEON) =====
 DB_ENGINE=django.db.backends.postgresql
@@ -90,7 +90,7 @@ DB_HOST=ep-lucky-poetry-ap6otfso-pooler.c-7.us-east-1.aws.neon.tech
 DB_PORT=5432
 
 # ===== CORS PARA PRODUCCIÓN =====
-CORS_ALLOWED_ORIGINS=https://www.vialtros.ds1.eleueleo.com,https://vialtros.ds1.eleueleo.com
+CORS_ALLOWED_ORIGINS=http://localhost:3000
 
 # ===== EMAIL (OPCIONAL) =====
 EMAIL_HOST=smtp.gmail.com
@@ -219,8 +219,8 @@ echo -e "   ${GREEN}sudo systemctl restart apache2${NC}"
 echo ""
 
 echo "4. Verificar que todo funciona:"
-echo -e "   ${GREEN}curl http://vialtros.ds1.eleueleo.com${NC}"
-echo -e "   O abre en navegador: ${BLUE}http://vialtros.ds1.eleueleo.com${NC}"
+echo -e "   ${GREEN}curl http://localhost:8000${NC}"
+echo -e "   O abre en navegador: ${BLUE}http://localhost:3000${NC}"
 echo ""
 
 echo -e "${YELLOW}Credenciales de prueba:${NC}"

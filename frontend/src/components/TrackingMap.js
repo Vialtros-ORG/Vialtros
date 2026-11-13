@@ -22,7 +22,7 @@ const routeLineLayer = {
   id: "route-line",
   type: "line",
   paint: {
-    "line-color": "#2E63D8",
+    "line-color": "#0b6e80",
     "line-width": 6,
     "line-opacity": 0.98,
     "line-dasharray": [3, 3],
@@ -46,13 +46,16 @@ function normalizeRouteCoordinates(routeCoordinates = []) {
         }
 
         // Soporta [lng, lat] (GeoJSON) y [lat, lng] desde APIs heredadas.
-        return Math.abs(first) > 90 ? [first, second] : [second, first];
+        const coords = Math.abs(first) > 90 ? [first, second] : [second, first];
+        return coords[0] >= -90 && coords[0] <= 90 && coords[1] >= -180 && coords[1] <= 180
+          ? coords
+          : null;
       }
 
       if (point && typeof point === "object") {
         const lat = Number(point.lat ?? point.latitude);
         const lng = Number(point.lng ?? point.longitude);
-        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        if (Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
           return [lng, lat];
         }
       }

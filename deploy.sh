@@ -90,8 +90,8 @@ if [ ! -f ".env" ]; then
     log_warn "No se encontró frontend/.env — copiando desde .env.example"
     cp .env.example .env
     log_error "IMPORTANTE: Edita frontend/.env con los valores reales antes de hacer deploy:"
-    log_error "  REACT_APP_API_URL=https://vialtros.ds1.eleueleo.com/api"
-    log_error "  REACT_APP_WS_URL=wss://vialtros.ds1.eleueleo.com/ws"
+    log_error "  REACT_APP_API_URL=http://localhost:8000/api"
+    log_error "  REACT_APP_WS_URL=ws://localhost:8000/ws"
     log_error "  REACT_APP_GOOGLE_MAPS_API_KEY=tu_key_aqui"
     log_error "Luego vuelve a ejecutar: bash deploy.sh production"
     exit 1
@@ -120,7 +120,7 @@ if [[ "$ENVIRONMENT" == "production" ]]; then
     log_info "   sudo systemctl restart apache2"
     log_info ""
     log_info "2. Verifica que todo funciona:"
-    log_info "   curl http://vialtros.ds1.eleueleo.com"
+    log_info "   curl http://localhost:8000"
     log_info ""
     log_info "3. Inicia sesión con:"
     log_info "   Usuario: admin"

@@ -1,98 +1,37 @@
-# Documentación — Vialtros
+# Documentación técnica
 
-> Plataforma SaaS de gestión de rutas con seguimiento GPS en tiempo real.  
-> **Versión:** 1.0-beta | **Última actualización:** 21 de mayo de 2026
+Guías de referencia para desarrollar, ejecutar y mantener Vialtros. El
+[README principal](../README.md) es el punto de entrada para una primera
+instalación; esta página organiza el detalle técnico sin repetir esos pasos.
 
-## 📑 Índice de Documentación
+## Arquitectura y aplicación
 
-| Archivo | Contenido |
+| Documento | Contenido |
 | --- | --- |
-| [**arquitectura.md**](arquitectura.md) | Stack tecnológico, diagrama del sistema, flujo de autenticación, seguridad |
-| [**modelos.md**](modelos.md) | Modelos de base de datos, diagrama ER, serializers, permisos por rol |
-| [**api.md**](api.md) | Referencia completa de endpoints REST y WebSocket |
-| [**frontend.md**](frontend.md) | Descripción de páginas, componentes reutilizables, servicios, variables de entorno |
-| [**despliegue.md**](despliegue.md) | Guía de instalación, configuración de desarrollo/producción, CI/CD con GitHub Actions |
+| [Arquitectura](arquitectura.md) | Componentes, responsabilidades, comunicación y diagramas Mermaid |
+| [Frontend](frontend.md) | Estructura, páginas, componentes y servicios React |
+| [API](api.md) | Endpoints REST, autenticación y WebSocket |
+| [Modelos de datos](modelos.md) | Entidades, relaciones y persistencia |
+| [Mapas y rutas](mapas.md) | Google Maps, Google Routes, Mapbox y variables de configuración |
 
-## 🚀 Inicio Rápido
+## Ejecución y operación
 
-Desde la raíz del proyecto en Windows:
-
-```powershell
-.\run_vialtros.bat
-```
-
-Esto inicia automáticamente:
-- **Backend:** `http://localhost:8000`
-- **Frontend:** `http://localhost:3000`
-
-### Credenciales de prueba
-
-```
-Usuario: admin
-Contraseña: admin123
-```
-
-## 📊 Estado del Proyecto
-
-Para ver las funcionalidades implementadas, pendientes y bugs resueltos, consulta:
-
-[**../estado_proyecto.txt**](../estado_proyecto.txt)
-
-## 🏗️ Arquitectura de Alto Nivel
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                     Frontend (React)                     │
-│  LoginPage → DashboardPage → AdminPages, DriverPages    │
-└──────────────────────┬──────────────────────────────────┘
-                       │ HTTP / WebSocket
-                       ↓
-┌─────────────────────────────────────────────────────────┐
-│              Backend (Django REST + Channels)            │
-│  API REST + WebSocket Consumer para tracking en vivo    │
-│  Autenticación JWT | Permisos por rol                   │
-└──────────────────────┬──────────────────────────────────┘
-                       │ SQL
-                       ↓
-┌─────────────────────────────────────────────────────────┐
-│              Base de Datos (SQLite/PostgreSQL)           │
-│  Users, Drivers, Routes, Tracking, PickupStatus         │
-└─────────────────────────────────────────────────────────┘
-```
-
-## 🔐 Seguridad
-
-- ✅ Autenticación JWT con refresh token
-- ✅ CORS configurado
-- ✅ Validación de permisos en cada endpoint
-- ✅ Passwords hasheados (bcrypt)
-- ⚠️ **Producción:** Ver checklist en [despliegue.md](despliegue.md)
-
-## 🛠️ Stack Tecnológico
-
-| Capa | Herramientas |
+| Documento | Contenido |
 | --- | --- |
-| **Backend** | Django 4 · DRF · Channels · daphne · PostgreSQL |
-| **Frontend** | React 19 · Tailwind CSS · React Router v7 · Lucide Icons |
-| **Real-time** | Django Channels + Redis |
-| **Autenticación** | SimpleJWT |
-| **DevOps** | GitHub Actions · SSH Deploy |
+| [Docker Compose](docker-compose.md) | Servicios, puertos, variables y comandos de operación |
+| [Variables de entorno](variables-entorno.md) | Configuración de Compose y desarrollo sin Docker |
+| [Despliegue](despliegue.md) | Modos soportados y workflows disponibles |
+| [Docker del backend](docker-backend.md) | Imagen, entrypoint, migraciones y comprobaciones |
+| [Checks de CI](ci-checks.md) | Workflows y validaciones automáticas |
+| [SonarQube](sonarqube.md) | Configuración e integración de análisis estático |
 
-## 🤝 Contribution
+## Contribuir
 
-Para contribuir al proyecto:
+Consulta la [guía de contribución](../CONTRIBUTING.md) para ramas, commits,
+Pull Requests y validación local. Las guías deben mantenerse alineadas con los
+archivos de configuración y workflows del repositorio.
 
-1. Crea una rama: `git checkout -b feature/mi-feature`
-2. Haz commits claros: `git commit -m "Agrega mi-feature"`
-3. Sube la rama: `git push origin feature/mi-feature`
-4. Abre un Pull Request en GitHub
+## Archivo histórico
 
-## 📞 Soporte
-
-- **Repositorio:** [github.com/Axwyk/Vialtros](https://github.com/Axwyk/Vialtros)
-- **Reuniones:** Miércoles, Jueves y Domingo a las 12:00 pm
-- **Meet:** [meet.google.com/yfp-zmkq-buk](https://meet.google.com/yfp-zmkq-buk)
-
----
-
-*Documentación última actualización: 21 de mayo de 2026*
+Los documentos antiguos conservados como referencia están en
+[archivo](archivo/README.md); no sustituyen las guías técnicas actuales.

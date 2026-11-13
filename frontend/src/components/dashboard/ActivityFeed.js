@@ -1,12 +1,13 @@
 import React from "react";
 import { icons } from "./icons";
 import { Link } from "react-router-dom";
+import "./dashboard-activity.css";
 
 const colorMap = {
-  emerald: { bg: "bg-emerald-50", text: "text-emerald-600" },
-  blue: { bg: "bg-blue-50", text: "text-blue-600" },
-  orange: { bg: "bg-orange-50", text: "text-orange-500" },
-  red: { bg: "bg-red-50", text: "text-red-500" },
+  emerald: "live",
+  blue: "route",
+  orange: "attention",
+  red: "attention",
 };
 
 function formatRelativeTime(value) {
@@ -35,10 +36,10 @@ function formatRelativeTime(value) {
 
 function getEmptyMessage(role) {
   if (role === "admin")
-    return "Aun no hay actividad reciente del sistema para mostrar.";
+    return "Aún no hay actividad reciente del sistema para mostrar.";
   if (role === "driver")
-    return "Aun no hay novedades recientes en tus rutas asignadas.";
-  return "Aun no hay novedades recientes en tu ruta asignada.";
+    return "Aún no hay novedades recientes en tus rutas asignadas.";
+  return "Aún no hay novedades recientes en tu ruta asignada.";
 }
 
 export default function ActivityFeed({
@@ -47,51 +48,48 @@ export default function ActivityFeed({
   role = "user",
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm h-full flex flex-col overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0 bg-slate-50/70">
+    <section
+      className="vt-dashboard-activity"
+      aria-labelledby="vt-dashboard-activity-title"
+    >
+      <div className="vt-dashboard-activity-head">
         <div>
-          <h3 className="font-semibold text-slate-900 text-sm">
+          <h3 id="vt-dashboard-activity-title">
             Actividad reciente
           </h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <p>
             Movimientos destacados de la jornada
           </p>
         </div>
-        <span className="text-xs text-slate-400 font-medium">Hoy</span>
+        <span className="vt-dashboard-activity-today">Hoy</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+      <div className="vt-dashboard-activity-list">
         {loading ? (
-          <div className="px-5 py-8 text-sm text-slate-400">
+          <div className="vt-dashboard-activity-message" role="status">
             Cargando actividad reciente...
           </div>
         ) : activities.length === 0 ? (
-          <div className="px-5 py-8 text-sm text-slate-400">
+          <div className="vt-dashboard-activity-message">
             {getEmptyMessage(role)}
           </div>
         ) : (
           activities.map((activity) => {
-            const c = colorMap[activity.tone] || colorMap.blue;
+            const tone = colorMap[activity.tone] || "route";
             const Icon = icons[activity.icon] || icons.activity;
             return (
               <div
                 key={activity.id}
-                className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors duration-100"
+                className="vt-dashboard-activity-row"
               >
-                <div
-                  className={`${c.bg} rounded-xl p-2 flex-shrink-0 mt-0.5 border border-white shadow-sm`}
-                >
-                  <Icon size={14} strokeWidth={2} className={c.text} />
+                <span className={`vt-dashboard-activity-icon is-${tone}`}>
+                  <Icon size={15} strokeWidth={1.9} aria-hidden="true" />
+                </span>
+                <div className="vt-dashboard-activity-copy">
+                  <p className="vt-dashboard-activity-title">{activity.title}</p>
+                  <p className="vt-dashboard-activity-subtitle">{activity.subtitle}</p>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 leading-tight truncate">
-                    {activity.title}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5 truncate">
-                    {activity.subtitle}
-                  </p>
-                </div>
-                <span className="text-xs text-slate-300 whitespace-nowrap flex-shrink-0 mt-0.5">
+                <span className="vt-dashboard-activity-time">
                   {formatRelativeTime(activity.timestamp)}
                 </span>
               </div>
@@ -100,15 +98,15 @@ export default function ActivityFeed({
         )}
       </div>
 
-      <div className="px-5 py-3 border-t border-slate-100 flex-shrink-0 bg-white">
+      <div className="vt-dashboard-activity-footer">
         <Link
-  to="/activity"
-  className="inline-flex items-center gap-2 text-xs text-blue-600 font-semibold hover:text-blue-700 transition-colors"
->
-  Ver todo el historial
-  {icons.arrowRight({ size: 13, strokeWidth: 2.4 })}
-</Link>
-      </div>
+          to="/activity"
+          className="vt-dashboard-activity-link"
+        >
+          Ver todo el historial
+          {icons.arrowRight({ size: 13, strokeWidth: 2.4 })}
+        </Link>
     </div>
+    </section>
   );
 }

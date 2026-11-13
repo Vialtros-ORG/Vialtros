@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [Develop, master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend CI (Modular)
+    uses: ./.github/workflows/backend.yml
+
+  frontend:
+    name: Frontend CI (Modular)
+    uses: ./.github/workflows/frontend.yml
+
+  compose:
+    name: Docker Compose integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      POSTGRES_DB: vialtros
+      POSTGRES_USER: vialtros
+      POSTGRES_PASSWORD: ci-only-password
+      DJANGO_DEBUG: "True"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Generate an ephemeral Django key for CI
+        shell: bash
+        run: |
+          DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(64))')"
+          echo "::add-mask::$DJANGO_SECRET_KEY"
+          echo "DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY" >> "$GITHUB_ENV"
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+      - name: Build and start the full stack
+        run: docker compose up --build --detach
+
+      - name: Check Django and run backend tests against PostgreSQL
+        run: |
+          for attempt in {1..30}; do
+            if docker compose exec --no-TTY backend python manage.py check; then
+              break
+            fi
+            if [[ "$attempt" == "30" ]]; then
+              docker compose logs db backend
+              exit 1
+            fi
+            sleep 2
+          done
+          docker compose exec --no-TTY backend python manage.py test
+
+      - name: Check frontend and backend HTTP responses
+        run: |
+          curl --fail --retry 10 --retry-connrefused --retry-delay 2 http://localhost:3000/
+          curl --fail --retry 10 --retry-connrefused --retry-delay 2 http://localhost:8000/admin/login/
+
+      - name: Stop stack without deleting database volumes
+        if: always()
+        run: docker compose down --remove-orphans
+
+  whitespace:
+    name: Check changed lines for whitespace errors
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check changed lines
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "push" && "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA="${HEAD_SHA}^"
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" || -z "$BASE_SHA" ]]; then
+            if git rev-parse --verify --quiet "${HEAD_SHA}^" >/dev/null; then
+              BASE_SHA="${HEAD_SHA}^"
+            else
+              BASE_SHA="$(git hash-object -t tree /dev/null)"
+            fi
+          fi
+
+          git diff --check "$BASE_SHA" "$HEAD_SHA"
+
+  readme-links:
+    name: Check links in README
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate local README links
+        run: python .github/scripts/check_readme_links.py
+
+  lint-markdown:
+    name: lint-markdown
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint changed Markdown files
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "push" && "$BASE_SHA" =~ ^0+$ ]] || [[ "$EVENT_NAME" == "workflow_dispatch" || -z "$BASE_SHA" ]]; then
+            if git rev-parse --verify --quiet "${HEAD_SHA}^" >/dev/null; then
+              BASE_SHA="${HEAD_SHA}^"
+            else
+              BASE_SHA="$(git hash-object -t tree /dev/null)"
+            fi
+          fi
+
+          changed_files_file="$(mktemp)"
+          trap 'rm -f "$changed_files_file"' EXIT
+          git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA" -- '*.md' '*.markdown' > "$changed_files_file"
+          mapfile -d '' -t markdown_files < "$changed_files_file"
+
+          if (( ${#markdown_files[@]} == 0 )); then
+            echo "No changed Markdown files to lint."
+            exit 0
+          fi
+
+          npx --yes markdownlint-cli2@0.24.0 "${markdown_files[@]}"

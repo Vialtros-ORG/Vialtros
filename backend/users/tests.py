@@ -1,9 +1,14 @@
+from unittest.mock import Mock, patch
+
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Driver, Passenger, Route, Tracking, User
+from .models import (
+	Driver, Notification, NotificationType, Passenger, Route, RouteRating, Tracking, User,
+)
+from .views import _create_and_broadcast_notification, _should_notify, _should_notify_threshold
 
 
 @override_settings(TRACKING_INGEST_TOKEN='gps-demo-token')
@@ -361,3 +366,234 @@ class RecentActivityTests(APITestCase):
 
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 		self.assertEqual(sum(item['value'] for item in response.data), 2)
+
+
+class AdminProtectionTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='admin_unico',
+            password='secreto123',
+            role='admin',
+        )
+        self.client.force_authenticate(user=self.admin)
+
+    def test_cannot_delete_only_admin(self):
+        response = self.client.delete(f'/api/users/{self.admin.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(User.objects.filter(id=self.admin.id).exists())
+        self.assertEqual(
+            response.data['detail'],
+            'No se puede eliminar el único administrador del sistema.'
+        )
+
+class TrackingStatusValidationTests(APITestCase):
+    def setUp(self):
+        self.driver_user = User.objects.create_user(
+            username='driver_status',
+            password='secreto123',
+            role='driver',
+        )
+        self.driver = Driver.objects.create(
+            user=self.driver_user,
+            license_number='DRV-STATUS',
+        )
+        self.route = Route.objects.create(
+            name='Ruta Estado',
+            origin='Centro',
+            destination='Universidad',
+            driver=self.driver,
+        )
+        self.tracking = Tracking.objects.create(
+            route=self.route,
+            latitude=3.45,
+            longitude=-76.53,
+        )
+        self.client.force_authenticate(user=self.driver_user)
+
+    def test_rejects_invalid_tracking_status(self):
+        response = self.client.post(
+            f'/api/tracking/{self.tracking.id}/update_status/',
+            {'status': 'estado_invalido'},
+            format='json',
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class TrackingPassengerAssignmentTests(APITestCase):
+    def setUp(self):
+        self.driver_user = User.objects.create_user(username='driver_pickup', password='secreto123', role='driver')
+        self.driver = Driver.objects.create(user=self.driver_user, license_number='DRV-PICKUP')
+        self.route = Route.objects.create(name='Ruta asignada', origin='Centro', destination='Colegio', driver=self.driver)
+        self.passenger = Passenger.objects.create(
+            user=User.objects.create_user(username='passenger_pickup', password='secreto123', role='user'),
+            phone='3001234567', pickup_address='Parada registrada', pickup_lat=3.89, pickup_lng=-77.03,
+        )
+        self.client.force_authenticate(user=self.driver_user)
+
+    def test_driver_cannot_update_passenger_outside_assigned_route(self):
+        response = self.client.post('/api/tracking/update_status_by_passenger/', {
+            'route_id': self.route.id,
+            'passenger_id': self.passenger.id,
+            'status': 'picked',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(Tracking.objects.filter(route=self.route, passenger=self.passenger).exists())
+
+    def test_pickup_event_uses_passenger_stop_coordinates(self):
+        self.route.passengers.add(self.passenger)
+        response = self.client.post('/api/tracking/update_status_by_passenger/', {
+            'route_id': self.route.id,
+            'passenger_id': self.passenger.id,
+            'status': 'picked',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        tracking = Tracking.objects.get(route=self.route, passenger=self.passenger)
+        self.assertEqual(tracking.latitude, self.passenger.pickup_lat)
+        self.assertEqual(tracking.longitude, self.passenger.pickup_lng)
+        self.assertNotEqual((tracking.latitude, tracking.longitude), (0.0, 0.0))
+
+
+class RouteRatingAuthorizationTests(APITestCase):
+    def setUp(self):
+        self.driver_user = User.objects.create_user(username='driver_rating', password='secreto123', role='driver')
+        self.driver = Driver.objects.create(user=self.driver_user, license_number='DRV-RATING')
+        self.other_driver_user = User.objects.create_user(username='other_driver_rating', password='secreto123', role='driver')
+        self.other_driver = Driver.objects.create(user=self.other_driver_user, license_number='DRV-OTHER-RATING')
+        self.route = Route.objects.create(name='Ruta propia', origin='Centro', destination='Colegio', driver=self.driver)
+        self.other_route = Route.objects.create(name='Ruta ajena', origin='Puerto', destination='Terminal', driver=self.other_driver)
+
+    def test_driver_cannot_rate_route_assigned_to_another_driver(self):
+        self.client.force_authenticate(user=self.driver_user)
+        response = self.client.post('/api/route-ratings/', {
+            'route': self.other_route.id,
+            'stars': 5,
+            'comment': 'Calificación no autorizada',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(RouteRating.objects.filter(route=self.other_route).exists())
+
+    def test_passenger_cannot_create_route_rating(self):
+        passenger = User.objects.create_user(username='passenger_rating', password='secreto123', role='user')
+        self.client.force_authenticate(user=passenger)
+        response = self.client.post('/api/route-ratings/', {
+            'route': self.route.id,
+            'stars': 4,
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(RouteRating.objects.exists())
+
+class RouteNotFoundTests(APITestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_user(
+            username='admin_route_test',
+            password='secreto123',
+            role='admin',
+        )
+        self.client.force_authenticate(user=self.admin_user)
+
+    def test_route_detail_returns_404_when_route_does_not_exist(self):
+        response = self.client.get('/api/routes/999999/')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+class AuthenticationRequiredTests(APITestCase):
+    def test_notifications_require_authentication(self):
+        response = self.client.get('/api/notifications/')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+
+
+class NotificationHelperCoverageTests(APITestCase):
+	def setUp(self):
+		self.user = User.objects.create_user(
+			username='notification_helper',
+			password='secreto123',
+			role='user',
+		)
+
+	def test_notification_cooldown_prevents_duplicate_notifications(self):
+		self.assertTrue(_should_notify(self.user, NotificationType.ROUTE_STARTED, None))
+		Notification.objects.create(
+			user=self.user,
+			type=NotificationType.ROUTE_STARTED,
+			title='Ruta iniciada',
+			message='La ruta comenzó',
+		)
+
+		self.assertFalse(_should_notify(self.user, NotificationType.ROUTE_STARTED, None))
+
+	def test_notification_threshold_cooldown_is_specific_to_each_threshold(self):
+		Notification.objects.create(
+			user=self.user,
+			type=NotificationType.DRIVER_NEAR_STOP,
+			title='Próxima parada',
+			message='El conductor se acerca',
+			metadata={'threshold': '150m'},
+		)
+
+		self.assertFalse(_should_notify_threshold(
+			self.user, NotificationType.DRIVER_NEAR_STOP, None, '150m',
+		))
+		self.assertTrue(_should_notify_threshold(
+			self.user, NotificationType.DRIVER_NEAR_STOP, None, '50m',
+		))
+
+	def test_notification_is_saved_when_no_channel_layer_is_configured(self):
+		with patch('users.views.get_channel_layer', return_value=None):
+			notification = _create_and_broadcast_notification(
+				self.user,
+				NotificationType.ROUTE_STARTED,
+				'Ruta iniciada',
+				'La ruta comenzó',
+			)
+
+		self.assertEqual(notification.user, self.user)
+		self.assertEqual(Notification.objects.count(), 1)
+
+	def test_notification_broadcast_failure_does_not_discard_saved_notification(self):
+		channel_layer = Mock()
+		with patch('users.views.get_channel_layer', return_value=channel_layer), \
+				patch('users.views.async_to_sync', side_effect=RuntimeError('websocket offline')):
+			with self.assertLogs('users.views', level='WARNING'):
+				notification = _create_and_broadcast_notification(
+					self.user,
+					NotificationType.ROUTE_STARTED,
+					'Ruta iniciada',
+					'La ruta comenzó',
+				)
+
+		self.assertIsNotNone(notification.pk)
+		self.assertEqual(Notification.objects.count(), 1)
+
+
+class RoutePermissionTests(APITestCase):
+    def setUp(self):
+        self.normal_user = User.objects.create_user(
+            username='usuario_sin_permiso',
+            password='secreto123',
+            role='user',
+        )
+        self.client.force_authenticate(user=self.normal_user)
+
+    def test_normal_user_cannot_access_route_admin_endpoint(self):
+        response = self.client.get('/api/routes/')
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
