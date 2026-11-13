@@ -1,9 +1,14 @@
+from unittest.mock import Mock, patch
+
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Driver, Passenger, Route, RouteRating, Tracking, User
+from .models import (
+	Driver, Notification, NotificationType, Passenger, Route, RouteRating, Tracking, User,
+)
+from .views import _create_and_broadcast_notification, _should_notify, _should_notify_threshold
 
 
 @override_settings(TRACKING_INGEST_TOKEN='gps-demo-token')
@@ -511,6 +516,69 @@ class AuthenticationRequiredTests(APITestCase):
             response.status_code,
             status.HTTP_401_UNAUTHORIZED,
         )
+
+
+class NotificationHelperCoverageTests(APITestCase):
+	def setUp(self):
+		self.user = User.objects.create_user(
+			username='notification_helper',
+			password='secreto123',
+			role='user',
+		)
+
+	def test_notification_cooldown_prevents_duplicate_notifications(self):
+		self.assertTrue(_should_notify(self.user, NotificationType.ROUTE_STARTED, None))
+		Notification.objects.create(
+			user=self.user,
+			type=NotificationType.ROUTE_STARTED,
+			title='Ruta iniciada',
+			message='La ruta comenzó',
+		)
+
+		self.assertFalse(_should_notify(self.user, NotificationType.ROUTE_STARTED, None))
+
+	def test_notification_threshold_cooldown_is_specific_to_each_threshold(self):
+		Notification.objects.create(
+			user=self.user,
+			type=NotificationType.DRIVER_NEAR_STOP,
+			title='Próxima parada',
+			message='El conductor se acerca',
+			metadata={'threshold': '150m'},
+		)
+
+		self.assertFalse(_should_notify_threshold(
+			self.user, NotificationType.DRIVER_NEAR_STOP, None, '150m',
+		))
+		self.assertTrue(_should_notify_threshold(
+			self.user, NotificationType.DRIVER_NEAR_STOP, None, '50m',
+		))
+
+	def test_notification_is_saved_when_no_channel_layer_is_configured(self):
+		with patch('users.views.get_channel_layer', return_value=None):
+			notification = _create_and_broadcast_notification(
+				self.user,
+				NotificationType.ROUTE_STARTED,
+				'Ruta iniciada',
+				'La ruta comenzó',
+			)
+
+		self.assertEqual(notification.user, self.user)
+		self.assertEqual(Notification.objects.count(), 1)
+
+	def test_notification_broadcast_failure_does_not_discard_saved_notification(self):
+		channel_layer = Mock()
+		with patch('users.views.get_channel_layer', return_value=channel_layer), \
+				patch('users.views.async_to_sync', side_effect=RuntimeError('websocket offline')):
+			with self.assertLogs('users.views', level='WARNING'):
+				notification = _create_and_broadcast_notification(
+					self.user,
+					NotificationType.ROUTE_STARTED,
+					'Ruta iniciada',
+					'La ruta comenzó',
+				)
+
+		self.assertIsNotNone(notification.pk)
+		self.assertEqual(Notification.objects.count(), 1)
 
 
 class RoutePermissionTests(APITestCase):
